@@ -1,0 +1,39 @@
+{
+  "name": "backend-blog",
+  "version": "1.0.0",
+  "description": "backend responsable de la gestion des blogs",
+  "main": "index.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=production node index.js",
+    "dev": "cross-env NODE_ENV=development node --watch index.js",
+    "build:ui": "rm -rf dist && cd ../frontendB-log && npm run build && cp -r dist ../backend-phonebook",
+    "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push",
+    "test": "cross-env NODE_ENV=test node --test",
+    "test:only": "cross-env NODE_ENV=test node --test --test-only",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theblackmamba08/backend-blog.git"
+  },
+  "author": "Dupont Djeague",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "lodash": "^4.17.21",
+    "mongoose": "^8.18.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "@stylistic/eslint-plugin": "^5.3.1",
+    "cross-env": "^10.0.0",
+    "eslint": "^9.35.0",
+    "globals": "^16.3.0",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.4"
+  }
+}

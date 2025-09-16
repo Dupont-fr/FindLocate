@@ -1,0 +1,17 @@
+### Create a token
+POST http://localhost:3003/api/login
+Content-Type: application/json
+
+{
+  "username": "duponts",
+  "password": "1234"
+}
+
+### Create a token
+POST http://localhost:3003/api/login
+Content-Type: application/json
+
+{
+  "username": "rooat",
+  "password": "theblackmamba08"
+}
