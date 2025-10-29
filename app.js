@@ -1,33 +1,55 @@
+// 🩵 Correction Windows / proxy : désactive la vérification TLS globale en dev
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
 const express = require('express')
+const cors = require('cors')
+const mongoose = require('mongoose')
 const config = require('./utils/config')
 const logger = require('./utils/logger')
-const mongoose = require('mongoose')
 const middleware = require('./utils/middleware')
-const blogsRouter = require('./controllers/blogs')
-const usersRouter = require('./controllers/users')
-const loginRouter = require('./controllers/login')
+const authRouter = require('./controllers/authController')
+const usersRouter = require('./controllers/usersController')
+const postsRouter = require('./controllers/postsController')
+const conversationsRouter = require('./controllers/conversationsController')
+const { testEmailConnection } = require('./utils/emailConfig')
 
 const app = express()
 
-logger.info('Connecting to', config.MONGODB_URI)
-
+// ✅ Connexion à MongoDB
 mongoose
-    .connect(config.MONGODB_URI)
-    .then(() => {
-        logger.info('Connected to MongoDB')
-    })
-    .catch((error) => {
-        logger.error('Error connecting to MongoDB:', error.message)
-    })
+  .connect(config.MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch((error) => {
+    console.error('❌ Error connecting to MongoDB:', error.message)
+    process.exit(1) // Stoppe le serveur si la connexion échoue
+  })
 
-app.use(express.json())
-app.use(middleware.tokenExtractor)
+// ✅ Middlewares globaux
+app.use(cors())
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
+
+// ✅ Ignorer les logs pour les requêtes Socket.IO
+app.use((req, res, next) => {
+  if (req.path.startsWith('/socket.io')) return next()
+  next()
+})
+
+// ✅ Logger normal (pour toutes les autres routes)
 app.use(middleware.requestLogger)
 
-app.use('/api/blogs', blogsRouter)
+// ✅ Routes API
+app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
-app.use('/api/login', loginRouter)
+app.use('/api/conversations', conversationsRouter)
+app.use('/api/posts', postsRouter)
 
+// ✅ Route de test santé
+app.get('/api/health', (req, res) => {
+  res.send({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// ✅ Gestion des erreurs
 app.use(middleware.unknownEndpoint)
 app.use(middleware.errorHandler)
 

@@ -1,0 +1,11 @@
+### CREATE USER
+POST http://localhost:3002/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Dupont",
+  "lastName": "Djeague",
+  "email": "dupontdjeague@gmail.com",
+  "phonenumber": "692763964",
+  "password": "Pass@123"
+}

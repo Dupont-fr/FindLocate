@@ -1,17 +1,18 @@
 {
-  "name": "backend-blog",
+  "name": "backend-FindLocate",
   "version": "1.0.0",
-  "description": "backend responsable de la gestion des blogs",
+  "description": "backend responsable de l'application FindLocate",
   "main": "index.js",
   "scripts": {
     "start": "cross-env NODE_ENV=production node index.js",
     "dev": "cross-env NODE_ENV=development node --watch index.js",
-    "build:ui": "rm -rf dist && cd ../frontendB-log && npm run build && cp -r dist ../backend-phonebook",
+    "build:ui": "rm -rf dist && cd ../FindLocate_frontend && npm run build && cp -r dist ../FindLocate",
     "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push",
     "test": "cross-env NODE_ENV=test node --test",
     "test:only": "cross-env NODE_ENV=test node --test --test-only",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "start:test": "cross-env NODE_ENV=test node --watch index.js"
   },
   "repository": {
     "type": "git",
@@ -21,11 +22,17 @@
   "license": "MIT",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "express-validator": "^7.3.0",
+    "googleapis": "^164.1.0",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
-    "mongoose": "^8.18.0"
+    "mongoose": "^8.18.0",
+    "nodemailer": "^7.0.10",
+    "socket.io": "^4.8.1",
+    "validator": "^13.15.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",

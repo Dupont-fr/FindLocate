@@ -1,0 +1,31 @@
+### CREATE USER
+POST http://localhost:3002/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Dupont",
+  "lastName": "Djeague",
+  "email": "findlocate237@gmail.com",
+  "phonenumber": "690123466",
+  "password": "Pass@124"
+}
+
+
+### LOGIN
+POST http://localhost:3003/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "dupont@example.com",
+  "password": "Pass@123"
+}
+
+
+### VERIFY EMAIL
+POST http://localhost:3003/api/auth/verify
+Content-Type: application/json
+
+{
+  "email": "dupont@example.com",
+  "code": "123456"
+}
