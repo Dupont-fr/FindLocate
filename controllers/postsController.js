@@ -3,6 +3,8 @@ const Post = require('../models/post')
 const User = require('../models/user')
 const { userExtractor } = require('../utils/middleware')
 const { sendPostCreatedEmail } = require('../utils/emailConfig')
+// 🆕 AJOUT: Import du service socket pour les notifications en temps réel
+const { getIO } = require('../utils/socketConfig')
 
 // 📌 Récupérer tous les posts (ou filtrer par userId)
 postsRouter.get('/', async (req, res, next) => {
@@ -205,17 +207,110 @@ postsRouter.patch('/:id', async (req, res, next) => {
 
     // ✅ 1️⃣ Mise à jour des likes du post
     if (likes !== undefined && !comments && !action) {
+      const previousLikes = post.likes.length
       post.likes = likes
       const updated = await post.save()
+
       console.log(`👍 Post liké/déliké : ${post._id}`)
+
+      // 🆕 AJOUT: Envoyer notification si c'est un nouveau like
+      if (likes.length > previousLikes) {
+        const lastLike = likes[likes.length - 1]
+        const newLikerId =
+          typeof lastLike === 'object' ? lastLike.userId : lastLike
+
+        // Vérifier si ce n'est pas son propre post
+        if (post.userId !== newLikerId) {
+          try {
+            const liker = await User.findById(newLikerId)
+
+            if (liker) {
+              const io = getIO()
+
+              const notification = {
+                type: 'like',
+                postId: post._id,
+                senderId: newLikerId,
+                senderName: `${liker.firstName} ${liker.lastName}`,
+                senderAvatar: liker.profilePicture || '/default-avatar.png',
+                message: `${liker.firstName} ${liker.lastName} a aimé votre post`,
+                postPreview: post.content.substring(0, 50) + '...',
+                timestamp: new Date().toISOString(),
+                recipientId: post.userId,
+              }
+
+              io.to(`user_${post.userId}`).emit(
+                'notification:new-like',
+                notification
+              )
+            }
+          } catch (notificationError) {
+            console.error(
+              '⚠️ Erreur envoi notification like:',
+              notificationError.message
+            )
+          }
+        }
+      }
+
       return res.json(updated)
     }
 
     // ✅ 2️⃣ Mise à jour complète des commentaires
     if (comments !== undefined && !action) {
+      const previousCommentsCount = post.comments.length
       post.comments = comments
       const updated = await post.save()
+
       console.log(`💬 Commentaires mis à jour pour le post : ${post._id}`)
+
+      // 🆕 AJOUT: Envoyer notification si c'est un nouveau commentaire
+      if (comments.length > previousCommentsCount) {
+        const newComment = comments[comments.length - 1]
+        const commentAuthorId = newComment.userId || newComment.user
+
+        // Vérifier si ce n'est pas son propre post
+        if (post.userId !== commentAuthorId) {
+          try {
+            const commenter = await User.findById(commentAuthorId)
+
+            if (commenter) {
+              const io = getIO()
+
+              const notification = {
+                type: 'comment',
+                postId: post._id,
+                senderId: commentAuthorId,
+                senderName: `${commenter.firstName} ${commenter.lastName}`,
+                senderAvatar: commenter.profilePicture || '/default-avatar.png',
+                message: `${commenter.firstName} ${commenter.lastName} a commenté votre post`,
+                commentPreview:
+                  (newComment.content || newComment.text || '').substring(
+                    0,
+                    50
+                  ) +
+                  ((newComment.content || newComment.text || '').length > 50
+                    ? '...'
+                    : ''),
+                postPreview: post.content.substring(0, 50) + '...',
+                timestamp: new Date().toISOString(),
+                recipientId: post.userId,
+              }
+
+              io.to(`user_${post.userId}`).emit(
+                'notification:new-comment',
+                notification
+              )
+            }
+          } catch (notificationError) {
+            console.error(
+              '⚠️ Erreur envoi notification commentaire:',
+              notificationError.message
+            )
+          }
+        }
+      }
+
       return res.json(updated)
     }
 
@@ -253,12 +348,10 @@ postsRouter.patch('/:id', async (req, res, next) => {
         )
 
         if (existingLike) {
-          // Supprimer le like (déliker)
           comment.likes = comment.likes.filter(
             (l) => l.userId !== req.body.likeData.userId
           )
         } else {
-          // Ajouter le like
           comment.likes.push(req.body.likeData)
         }
 

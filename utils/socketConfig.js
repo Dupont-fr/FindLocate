@@ -7,6 +7,9 @@ const onlineUsers = new Map()
 // Stockage des utilisateurs en train d'écrire: { conversationId: [userId1, userId2] }
 const typingUsers = new Map()
 
+// 🆕 AJOUT: Variable pour stocker l'instance io globalement
+let ioInstance = null
+
 const initializeSocket = (server) => {
   const io = socketIO(server, {
     cors: {
@@ -16,6 +19,9 @@ const initializeSocket = (server) => {
     },
   })
 
+  // 🆕 AJOUT: Sauvegarder l'instance io pour l'utiliser dans getIO()
+  ioInstance = io
+
   io.on('connection', (socket) => {
     logger.info(`🔌 Nouvelle connexion Socket: ${socket.id}`)
 
@@ -24,7 +30,14 @@ const initializeSocket = (server) => {
       onlineUsers.set(userId, socket.id)
       logger.info(`✅ Utilisateur ${userId} en ligne`)
 
-      // Notifier tous les autres utilisateurs
+      // NEW ✅ L'utilisateur rejoint sa room personnelle
+      // Cela permet d'envoyer des notifications privées via io.to(`user_${userId}`)
+      socket.join(`user_${userId}`)
+      logger.info(
+        `🏠 Utilisateur ${userId} a rejoint sa room personnelle user_${userId}`
+      )
+
+      // Notifier les autres
       socket.broadcast.emit('user:status', {
         userId,
         status: 'online',
@@ -51,7 +64,6 @@ const initializeSocket = (server) => {
     socket.on('message:send', (data) => {
       const { conversationId, message } = data
 
-      // Envoyer le message à tous les participants de la conversation
       io.to(conversationId).emit('message:receive', {
         conversationId,
         message,
@@ -71,7 +83,6 @@ const initializeSocket = (server) => {
         typing.push(userId)
       }
 
-      // Notifier les autres participants
       socket.to(conversationId).emit('typing:update', {
         conversationId,
         userId,
@@ -87,9 +98,7 @@ const initializeSocket = (server) => {
       if (typingUsers.has(conversationId)) {
         const typing = typingUsers.get(conversationId)
         const index = typing.indexOf(userId)
-        if (index > -1) {
-          typing.splice(index, 1)
-        }
+        if (index > -1) typing.splice(index, 1)
       }
 
       socket.to(conversationId).emit('typing:update', {
@@ -113,7 +122,6 @@ const initializeSocket = (server) => {
 
     // 📌 Déconnexion
     socket.on('disconnect', () => {
-      // Trouver l'utilisateur qui s'est déconnecté
       let disconnectedUserId = null
       for (const [userId, socketId] of onlineUsers.entries()) {
         if (socketId === socket.id) {
@@ -124,7 +132,6 @@ const initializeSocket = (server) => {
       }
 
       if (disconnectedUserId) {
-        // Notifier tous les autres utilisateurs
         socket.broadcast.emit('user:status', {
           userId: disconnectedUserId,
           status: 'offline',
@@ -140,7 +147,13 @@ const initializeSocket = (server) => {
   return io
 }
 
-// Fonction helper pour émettre des événements depuis les controllers
+// -------------------------------------------
+// NEW ✅ Helper pour émettre vers une room utilisateur
+// -------------------------------------------
+const emitToUserRoom = (io, userId, event, data) => {
+  io.to(`user_${userId}`).emit(event, data)
+}
+
 const emitToConversation = (io, conversationId, event, data) => {
   io.to(conversationId).emit(event, data)
 }
@@ -156,9 +169,20 @@ const isUserOnline = (userId) => {
   return onlineUsers.has(userId)
 }
 
+// 🆕 AJOUT: Fonction pour obtenir l'instance io depuis n'importe où
+// Cela permet d'émettre des notifications depuis les controllers
+const getIO = () => {
+  if (!ioInstance) {
+    throw new Error('Socket.io not initialized! Call initializeSocket first.')
+  }
+  return ioInstance
+}
+
 module.exports = {
   initializeSocket,
   emitToConversation,
   emitToUser,
+  emitToUserRoom,
   isUserOnline,
+  getIO, // 🆕 AJOUT: Export de la fonction getIO
 }

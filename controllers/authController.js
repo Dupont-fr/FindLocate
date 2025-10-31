@@ -7,10 +7,12 @@ const config = require('../utils/config')
 const {
   sendVerificationEmail,
   sendPasswordResetEmail,
-  sendWelcomeEmail, //  ajouté
+  sendWelcomeEmail,
+  sendLoginSuccessEmail,
+  sendPasswordResetSuccessEmail,
 } = require('../utils/emailConfig')
 
-//  Générer un code de vérification à 6 chiffres
+// Générer un code de vérification à 6 chiffres
 const generateVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
@@ -27,7 +29,7 @@ authRouter.post('/register', async (req, res, next) => {
       profilePicture,
     } = req.body
 
-    //  Validation du mot de passe
+    // Validation du mot de passe
     if (!password || password.length < 6)
       return res
         .status(400)
@@ -49,7 +51,7 @@ authRouter.post('/register', async (req, res, next) => {
         .status(400)
         .json({ error: 'Password must contain at least one special character' })
 
-    //  Vérifier les doublons (email ou téléphone)
+    // Vérifier les doublons (email ou téléphone)
     const existingEmail = await User.findOne({ email })
     if (existingEmail)
       return res.status(400).json({ error: 'This email is already registered' })
@@ -60,15 +62,15 @@ authRouter.post('/register', async (req, res, next) => {
         .status(400)
         .json({ error: 'This phone number is already used' })
 
-    //  Hash du mot de passe
+    // Hash du mot de passe
     const saltRounds = 10
     const passwordHash = await bcrypt.hash(password, saltRounds)
 
-    //  Générer un code de vérification (expire dans 5 minutes)
+    // Générer un code de vérification (expire dans 5 minutes)
     const verificationCode = generateVerificationCode()
     const verificationCodeExpires = new Date(Date.now() + 5 * 60 * 1000)
 
-    //  Créer le nouvel utilisateur
+    // Créer le nouvel utilisateur
     const user = new User({
       firstName,
       lastName,
@@ -86,7 +88,7 @@ authRouter.post('/register', async (req, res, next) => {
 
     const savedUser = await user.save()
 
-    //  Envoyer l'email de vérification
+    // Envoyer l'email de vérification
     try {
       await sendVerificationEmail(email, verificationCode, firstName)
     } catch (emailError) {
@@ -125,21 +127,20 @@ authRouter.post('/verify-email', async (req, res, next) => {
         .status(400)
         .json({ error: 'Invalid or expired verification code' })
 
-    //  Marquer comme vérifié
+    // Marquer comme vérifié
     user.isVerified = true
     user.verificationCode = undefined
     user.verificationCodeExpires = undefined
     await user.save()
 
-    //  Envoyer un email de bienvenue
     try {
       await sendWelcomeEmail(user.email, user.firstName)
       console.log('✅ Welcome email sent to', user.email)
     } catch (err) {
-      console.error('❌ Failed to send welcome email:', err.message)
+      console.error(' Failed to send welcome email:', err.message)
     }
 
-    //  Générer un token JWT
+    // Générer un token JWT
     const userForToken = { id: user._id, email: user.email }
     const token = jwt.sign(userForToken, config.JWT_SECRET, { expiresIn: '7d' })
 
@@ -200,6 +201,26 @@ authRouter.post('/login', async (req, res, next) => {
 
     const userForToken = { id: user._id, email: user.email }
     const token = jwt.sign(userForToken, config.JWT_SECRET, { expiresIn: '7d' })
+
+    try {
+      const loginDetails = {
+        loginTime: new Date().toLocaleString('fr-FR', {
+          dateStyle: 'full',
+          timeStyle: 'medium',
+        }),
+        ipAddress: req.ip || req.connection.remoteAddress || 'Non disponible',
+        device: req.headers['user-agent'] || 'Non disponible',
+      }
+
+      await sendLoginSuccessEmail(
+        user.email,
+        `${user.firstName} ${user.lastName}`,
+        loginDetails
+      )
+      console.log('✅ Login success email sent to', user.email)
+    } catch (emailError) {
+      console.error(' Failed to send login email:', emailError.message)
+    }
 
     res.status(200).json({ token, user: user.toJSON() })
   } catch (error) {
@@ -287,6 +308,19 @@ authRouter.post('/reset-password', async (req, res, next) => {
     user.resetPasswordCode = undefined
     user.resetCodeExpires = undefined
     await user.save()
+
+    try {
+      await sendPasswordResetSuccessEmail(
+        user.email,
+        `${user.firstName} ${user.lastName}`
+      )
+      console.log('✅ Password reset success email sent to', user.email)
+    } catch (emailError) {
+      console.error(
+        ' Failed to send password reset success email:',
+        emailError.message
+      )
+    }
 
     res.status(200).json({
       message: 'Password has been reset successfully! You can now login.',

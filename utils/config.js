@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET
 const EMAIL_USER = process.env.EMAIL_USER
 const EMAIL_PASS = process.env.EMAIL_PASS
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const MESSAGE_SECRET = process.env.MESSAGE_SECRET || process.env.JWT_SECRET
 
 if (!MONGODB_URI) {
   throw new Error('MONGODB_URI must be defined in .env file')
@@ -28,4 +29,5 @@ module.exports = {
   EMAIL_USER,
   EMAIL_PASS,
   FRONTEND_URL,
+  MESSAGE_SECRET,
 }

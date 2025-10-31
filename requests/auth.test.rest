@@ -29,3 +29,8 @@ Content-Type: application/json
   "email": "dupont@example.com",
   "code": "123456"
 }
+
+
+
+###
+GET http://localhost:3003/api/conversations/6903ca076c5e4c3ae658f232/690377151947ebb2683b3a97/messages
