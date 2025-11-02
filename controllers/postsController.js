@@ -2,7 +2,11 @@ const postsRouter = require('express').Router()
 const Post = require('../models/post')
 const User = require('../models/user')
 const { userExtractor } = require('../utils/middleware')
-const { sendPostCreatedEmail } = require('../utils/emailConfig')
+const {
+  sendPostCreatedEmail,
+  sendPostReportEmail,
+} = require('../utils/emailConfig')
+
 // 🆕 AJOUT: Import du service socket pour les notifications en temps réel
 const { getIO } = require('../utils/socketConfig')
 
@@ -13,14 +17,89 @@ postsRouter.get('/', async (req, res, next) => {
 
     let posts
     if (userId) {
-      posts = await Post.find({ userId }).sort({ createdAt: -1 })
+      posts = await Post.find({ userId }).sort({ createdAt: 1 })
     } else {
-      posts = await Post.find({}).sort({ createdAt: -1 })
+      posts = await Post.find({}).sort({ createdAt: 1 })
     }
 
     res.json(posts)
   } catch (error) {
     console.error('❌ Erreur récupération posts:', error)
+    next(error)
+  }
+})
+
+postsRouter.post('/report', async (req, res, next) => {
+  try {
+    const { postId, reason, additionalInfo } = req.body
+
+    // 🆕 Validation des données
+    if (!postId || !reason) {
+      return res.status(400).json({
+        error: 'Missing required fields: postId, reason',
+      })
+    }
+
+    // 🆕 Récupérer les informations du post
+    const post = await Post.findById(postId)
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' })
+    }
+
+    // 🆕 Mapper les codes de raison vers des labels lisibles
+    const reasonLabels = {
+      spam: 'Spam ou publicité non sollicitée',
+      fake: 'Fausse annonce ou arnaque',
+      inappropriate: 'Contenu inapproprié ou offensant',
+      duplicate: 'Annonce en double',
+      'wrong-category': 'Mauvaise catégorie',
+      'price-abuse': 'Prix abusif ou trompeur',
+      harassment: 'Harcèlement ou intimidation',
+      other: 'Autre raison',
+    }
+
+    const reasonLabel = reasonLabels[reason] || reason
+    // 🆕 AJOUT: Enregistrer le signalement dans le post
+    if (!post.reports) {
+      post.reports = []
+    }
+
+    post.reports.push({
+      reason: reasonLabel,
+      additionalInfo: additionalInfo || '',
+      timestamp: new Date(),
+    })
+
+    await post.save()
+    console.log('✅ Signalement enregistré pour le post:', postId)
+    // 🆕 Envoyer l'email à l'administrateur
+    try {
+      await sendPostReportEmail({
+        postId: post._id,
+        postTitle: post.content.substring(0, 100) + '...',
+        postType: post.type,
+        postPrice: post.price,
+        postLocation: `${post.quartier}, ${post.ville}, ${post.region}`,
+        postOwner: post.userName,
+        postOwnerId: post.userId,
+        reason: reasonLabel,
+        additionalInfo: additionalInfo || 'Aucune information supplémentaire',
+        reportedAt: new Date().toLocaleString('fr-FR'),
+      })
+
+      console.log("✅ Email de signalement envoyé à l'administrateur")
+    } catch (emailError) {
+      console.error('⚠️ Erreur envoi email de signalement:', emailError.message)
+      // 🆕 NOTE: On continue même si l'email échoue
+    }
+
+    // 🆕 Retourner une réponse de succès
+    res.status(200).json({
+      message: 'Report submitted successfully',
+      reported: true,
+    })
+  } catch (error) {
+    console.error('❌ Erreur signalement post:', error)
     next(error)
   }
 })

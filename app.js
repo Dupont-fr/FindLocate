@@ -1,4 +1,5 @@
 // 🩵 Correction Windows / proxy : désactive la vérification TLS globale en dev
+require('dotenv').config()
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
 const express = require('express')
@@ -11,6 +12,8 @@ const authRouter = require('./controllers/authController')
 const usersRouter = require('./controllers/usersController')
 const postsRouter = require('./controllers/postsController')
 const conversationsRouter = require('./controllers/conversationsController')
+const adminRouter = require('./controllers/adminController')
+
 const { testEmailConnection } = require('./utils/emailConfig')
 
 const app = express()
@@ -43,6 +46,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/conversations', conversationsRouter)
 app.use('/api/posts', postsRouter)
+app.use('/api/admin', adminRouter)
 
 // ✅ Route de test santé
 app.get('/api/health', (req, res) => {

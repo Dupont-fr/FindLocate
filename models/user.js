@@ -42,6 +42,22 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
     },
+    //Rôle de l'utilisateur (par défaut "user")
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
+    // Statut du compte
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    //AJOUT: Date de création du compte
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
     isVerified: {
       type: Boolean,
       default: false,

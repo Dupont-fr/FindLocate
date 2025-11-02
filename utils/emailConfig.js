@@ -363,6 +363,164 @@ const sendAccountDeletionEmail = async (userEmail, userName) => {
   console.log('📩 Account deletion email sent to:', userEmail)
 }
 
+const sendPostReportEmail = async (reportData) => {
+  const {
+    postId,
+    postTitle,
+    postType,
+    postPrice,
+    postLocation,
+    postOwner,
+    postOwnerId,
+    reason,
+    additionalInfo,
+    reportedAt,
+  } = reportData
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: 'findlocate237@gmail.com',
+    subject: `🚨 Signalement d'annonce - ${postType}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+          }
+          .header {
+            background-color: #dc3545;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+          }
+          .content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+          }
+          .alert-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+          }
+          .info-box {
+            background-color: #f0f8ff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+          }
+          .info-row {
+            margin: 10px 0;
+          }
+          .label {
+            font-weight: bold;
+            color: #555;
+          }
+          .footer {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin-top: 20px;
+          }
+          .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #1877f2;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0;">🚨 Signalement d'annonce</h1>
+          </div>
+          <div class="content">
+            <p>Bonjour Administrateur,</p>
+            
+            <div class="alert-box">
+              <strong>⚠️ Une annonce a été signalée de manière anonyme</strong>
+            </div>
+
+            <h3>📋 Informations de l'annonce signalée :</h3>
+            <div class="info-box">
+              <div class="info-row">
+                <span class="label">ID de l'annonce :</span> ${postId}
+              </div>
+              <div class="info-row">
+                <span class="label">Titre :</span> ${postTitle}
+              </div>
+              <div class="info-row">
+                <span class="label">Type :</span> ${postType}
+              </div>
+              <div class="info-row">
+                <span class="label">Prix :</span> ${parseInt(
+                  postPrice
+                ).toLocaleString()} FCFA
+              </div>
+              <div class="info-row">
+                <span class="label">Localisation :</span> ${postLocation}
+              </div>
+              <div class="info-row">
+                <span class="label">Propriétaire :</span> ${postOwner} (ID: ${postOwnerId})
+              </div>
+            </div>
+
+            <h3>🚩 Motif du signalement :</h3>
+            <div class="info-box">
+              <strong style="color: #dc3545;">${reason}</strong>
+            </div>
+
+            <h3>📝 Informations supplémentaires :</h3>
+            <div class="info-box">
+              <p style="margin: 0;">${additionalInfo}</p>
+            </div>
+
+            <div class="info-row">
+              <span class="label">Date du signalement :</span> ${reportedAt}
+            </div>
+
+            <center>
+              <a href="${
+                process.env.FRONTEND_URL || 'http://localhost:5173'
+              }/posts/${postId}" class="button">
+                👁️ Voir l'annonce
+              </a>
+            </center>
+
+            <p style="margin-top: 30px; color: #666; font-size: 14px;">
+              🔒 <strong>Note :</strong> Ce signalement est anonyme. L'utilisateur ayant signalé cette annonce reste confidentiel.
+            </p>
+          </div>
+          <div class="footer">
+            <p>Cet email a été envoyé automatiquement par le système de signalement.</p>
+            <p>© ${new Date().getFullYear()} FindLocate - Tous droits réservés</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  }
+
+  return await transporter.sendMail(mailOptions)
+}
+
 const testEmailConnection = async () => {
   try {
     await transporter.verify()
@@ -384,4 +542,5 @@ module.exports = {
   sendProfileUpdateEmail,
   sendAccountDeletionEmail,
   testEmailConnection,
+  sendPostReportEmail,
 }

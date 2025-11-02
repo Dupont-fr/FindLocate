@@ -87,6 +87,27 @@ const postSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  reports: [
+    {
+      reason: {
+        type: String,
+        required: true,
+      },
+      additionalInfo: String,
+      timestamp: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
+})
+
+postSchema.set('toJSON', {
+  transform: (document, returnedObject) => {
+    returnedObject.id = returnedObject._id.toString()
+    delete returnedObject._id
+    delete returnedObject.__v
+  },
 })
 
 postSchema.set('toJSON', {
