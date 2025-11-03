@@ -6,8 +6,9 @@
   "scripts": {
     "start": "cross-env NODE_ENV=production node index.js",
     "dev": "cross-env NODE_ENV=development node --watch index.js",
-    "build:ui": "rm -rf dist && cd ../FindLocate_frontend && npm run build && cp -r dist ../FindLocate",
+    "build:ui": "cd ../FindLocate_frontend && npm install && npm run build && cp -r dist ../backend-FindLocate",
     "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push",
+    "build": "npm run build:ui",
     "test": "cross-env NODE_ENV=test node --test",
     "test:only": "cross-env NODE_ENV=test node --test --test-only",
     "lint": "eslint .",

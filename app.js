@@ -53,6 +53,21 @@ app.get('/api/health', (req, res) => {
   res.send({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+if (process.env.NODE_ENV === 'production') {
+  // Servir les fichiers statiques du build React
+  app.use(express.static(path.join(__dirname, 'dist')))
+
+  // Toutes les routes non-API renvoient vers index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+  })
+} else {
+  // Route de base pour le développement
+  app.get('/', (req, res) => {
+    res.send('FindLocate API is running... 🚀')
+  })
+}
+
 // ✅ Gestion des erreurs
 app.use(middleware.unknownEndpoint)
 app.use(middleware.errorHandler)
