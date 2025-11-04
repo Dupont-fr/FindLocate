@@ -3,17 +3,18 @@ const config = require('./config')
 
 // === CONFIGURATION DU TRANSPORTEUR ===
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
+  //host: 'smtp.gmail.com',
   port: 587,
-  secure: false,
+  //secure: false,
+  service: 'gmail',
   auth: {
     user: config.EMAIL_USER,
     pass: config.EMAIL_PASS || config.EMAIL_PASS, // compatibilité
   },
-  tls: {
-    rejectUnauthorized: false,
-    ciphers: 'SSLv3',
-  },
+  // tls: {
+  //   rejectUnauthorized: false,
+  //   ciphers: 'SSLv3',
+  // },
 })
 
 // Vérification initiale du transporteur
