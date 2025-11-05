@@ -1,5 +1,3 @@
-// 🩵 Correction Windows / proxy : désactive la vérification TLS globale en dev
-
 const path = require('path')
 require('dotenv').config()
 //process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
