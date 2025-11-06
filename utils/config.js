@@ -7,6 +7,8 @@ const EMAIL_USER = process.env.EMAIL_USER
 const EMAIL_PASS = process.env.EMAIL_PASS
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
 const MESSAGE_SECRET = process.env.MESSAGE_SECRET || process.env.JWT_SECRET
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY
+
 if (!MONGODB_URI) {
   throw new Error('MONGODB_URI must be defined in .env file')
 }
@@ -15,7 +17,7 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET must be defined in .env file')
 }
 
-if (!EMAIL_USER || !EMAIL_PASS) {
+if (!EMAIL_USER || !SENDGRID_API_KEY) {
   console.warn(
     'Warning: EMAIL_USER and EMAIL_PASS not configured. Email features will not work.'
   )
@@ -29,4 +31,5 @@ module.exports = {
   EMAIL_PASS,
   FRONTEND_URL,
   MESSAGE_SECRET,
+  SENDGRID_API_KEY,
 }

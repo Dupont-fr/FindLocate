@@ -17,3 +17,4 @@ node_modules/
 .env
 createAdmin.js
 debugToken.js
+sendemail.js
