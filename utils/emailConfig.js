@@ -1,12 +1,9 @@
 const sgMail = require('@sendgrid/mail')
 const config = require('./config')
 
-// === CONFIGURATION SENDGRID ===
-// ✅ Initialisation du SDK SendGrid avec la clé API
 if (config.SENDGRID_API_KEY) {
   sgMail.setApiKey(config.SENDGRID_API_KEY)
 
-  // 🆕 Configuration des timeouts pour éviter les problèmes de connexion
   sgMail.setTimeout(80000) // 30 secondes
 
   console.log('✅ SendGrid API key configured')
@@ -16,10 +13,8 @@ if (config.SENDGRID_API_KEY) {
   )
 }
 
-// === FONCTION UTILITAIRE D'ENVOI EMAIL ===
-// 🔄 Version améliorée avec retry et meilleure gestion d'erreurs
 const sendEmail = async (to, subject, html, retries = 3) => {
-  // 🆕 Validation des paramètres
+  //  Validation des paramètres
   if (!config.SENDGRID_API_KEY) {
     console.error('❌ SendGrid API key not configured')
     throw new Error('Email service not configured')
@@ -35,16 +30,16 @@ const sendEmail = async (to, subject, html, retries = 3) => {
     throw new Error('Invalid email parameters')
   }
 
-  // 🆕 Construction du message avec validation
+  //  Construction du message avec validation
   const msg = {
     to: to.trim(),
     from: {
       email: config.EMAIL_USER,
-      name: 'FindLocate', // 🆕 Nom d'affichage
+      name: 'FindLocate',
     },
     subject: subject,
     html: html,
-    // 🆕 Options supplémentaires pour la production
+
     trackingSettings: {
       clickTracking: {
         enable: false,
@@ -55,7 +50,6 @@ const sendEmail = async (to, subject, html, retries = 3) => {
     },
   }
 
-  // 🆕 Système de retry en cas d'échec réseau
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       console.log(
@@ -85,9 +79,8 @@ const sendEmail = async (to, subject, html, retries = 3) => {
         })
       }
 
-      // 🆕 Si c'est la dernière tentative, on lance l'erreur
+      //  Si c'est la dernière tentative, on lance l'erreur
       if (attempt === retries) {
-        // 🆕 Messages d'erreur plus clairs
         let errorMessage = 'Failed to send email'
 
         if (error.code === 401) {
@@ -108,15 +101,15 @@ const sendEmail = async (to, subject, html, retries = 3) => {
         throw new Error(errorMessage)
       }
 
-      // 🆕 Attendre avant de réessayer (délai exponentiel)
-      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000) // Max 5 secondes
+      //  Attendre avant de réessayer (délai exponentiel)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
       console.log(`⏳ Waiting ${delay}ms before retry...`)
       await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
 }
 
-// ✅ Test de connexion SendGrid
+// Test de connexion SendGrid
 const testEmailConnection = async () => {
   try {
     if (!config.SENDGRID_API_KEY) {
@@ -124,7 +117,7 @@ const testEmailConnection = async () => {
       return false
     }
 
-    // 🆕 Test simple sans envoyer d'email
+    //  Test simple sans envoyer d'email
     console.log('✅ SendGrid configuration OK - Ready to send')
     return true
   } catch (error) {
@@ -133,7 +126,7 @@ const testEmailConnection = async () => {
   }
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de vérification
+//  FONCTION INCHANGÉE - Envoi email de vérification
 const sendVerificationEmail = async (email, code, firstName) => {
   const subject = '✅ Your FindLocate Verification Code'
   const html = `

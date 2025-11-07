@@ -1,24 +1,22 @@
 const conversationsRouter = require('express').Router()
 const Conversation = require('../models/conversation')
 const { userExtractor } = require('../utils/middleware')
-// 🆕 AJOUT: Import des fonctions de chiffrement
 const {
   encryptMessage,
   decryptMessage,
   isEncrypted,
 } = require('../utils/encryption')
 
-// 🆕 AJOUT: Fonction helper pour normaliser l'ID des conversations
-// MongoDB utilise _id, mais le frontend attend id
+// normaliser l'ID des conversations
 const normalizeConversation = (conv) => {
   const obj = conv.toObject ? conv.toObject() : conv
   return {
     ...obj,
-    id: obj._id?.toString() || obj.id, // 🆕 Ajoute id à partir de _id
+    id: obj._id?.toString() || obj.id, //  Ajoute id à partir de _id
   }
 }
 
-// 📌 Récupérer toutes les conversations d'un utilisateur
+//  Récupérer toutes les conversations d'un utilisateur
 conversationsRouter.get('/', userExtractor, async (req, res, next) => {
   try {
     const userId = req.user.id
@@ -29,23 +27,20 @@ conversationsRouter.get('/', userExtractor, async (req, res, next) => {
       deletedFor: { $ne: userId }, // Exclure les conversations supprimées
     }).sort({ lastMessageTime: -1 })
 
-    // Transformer pour afficher le bon participant
     const transformedConversations = conversations.map((conv) => {
-      const convObj = normalizeConversation(conv) // 🆕 Normaliser avec id
+      const convObj = normalizeConversation(conv)
       const isUser1 = convObj.user1Id === userId
 
-      // 🆕 AJOUT: Déchiffrer le lastMessage pour l'affichage
       let lastMessage = convObj.lastMessage
       try {
         if (lastMessage && !lastMessage.startsWith('[')) {
-          lastMessage = decryptMessage(lastMessage) // 🆕 Déchiffrer
+          lastMessage = decryptMessage(lastMessage)
         }
       } catch (error) {
         console.error('⚠️ Erreur déchiffrement lastMessage:', error.message)
-        // 🆕 Si le déchiffrement échoue, garder le message original (compatibilité)
       }
 
-      // 🆕 AJOUT: Déchiffrer TOUS les messages de la conversation
+      //  Déchiffrer
       const decryptedMessages = convObj.messages.map((msg) => {
         try {
           return {
@@ -54,17 +49,17 @@ conversationsRouter.get('/', userExtractor, async (req, res, next) => {
           }
         } catch (error) {
           console.error('⚠️ Erreur déchiffrement message:', error.message)
-          return msg // 🆕 Retourner le message original en cas d'erreur
+          return msg
         }
       })
 
       return {
-        ...convObj, // 🆕 Contient déjà id normalisé
-        messages: decryptedMessages, // 🆕 Messages déchiffrés
+        ...convObj,
+        messages: decryptedMessages, //  Messages déchiffrés
         participantId: isUser1 ? convObj.user2Id : convObj.user1Id,
         participantName: isUser1 ? convObj.user2Name : convObj.user1Name,
         participantAvatar: isUser1 ? convObj.user2Avatar : convObj.user1Avatar,
-        lastMessage, // 🆕 LastMessage déchiffré
+        lastMessage, //
         unreadCount: decryptedMessages.filter(
           (msg) => msg.senderId !== userId && !msg.read
         ).length,
@@ -83,7 +78,7 @@ conversationsRouter.get('/', userExtractor, async (req, res, next) => {
   }
 })
 
-// 📌 Récupérer une conversation spécifique
+//  Récupérer une conversation spécifique
 conversationsRouter.get('/:id', userExtractor, async (req, res, next) => {
   try {
     const conversation = await Conversation.findById(req.params.id)
@@ -100,16 +95,14 @@ conversationsRouter.get('/:id', userExtractor, async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' })
     }
 
-    // 🆕 AJOUT: Normaliser la conversation avec id
     const conversationObj = normalizeConversation(conversation)
 
-    // 🆕 AJOUT: Déchiffrer tous les messages UN PAR UN
     conversationObj.messages = conversationObj.messages.map((msg) => {
       try {
         const decryptedText = msg.text ? decryptMessage(msg.text) : '' // 🆕 Déchiffrer
 
         console.log('🔍 Message:', {
-          // 🆕 Log de débogage
+          //  Log de débogage
           id: msg.id,
           original: msg.text?.substring(0, 30) + '...',
           decrypted: decryptedText?.substring(0, 30) + '...',
@@ -118,24 +111,24 @@ conversationsRouter.get('/:id', userExtractor, async (req, res, next) => {
 
         return {
           ...msg,
-          text: decryptedText, // 🆕 Texte déchiffré
+          text: decryptedText,
         }
       } catch (error) {
         console.error('❌ Erreur déchiffrement message:', msg.id, error.message)
         return {
           ...msg,
-          text: msg.text, // 🆕 Retourner le message original en cas d'erreur
+          text: msg.text,
         }
       }
     })
 
     console.log(
-      '✅ Conversation',
+      ' Conversation',
       conversationObj.id,
       'avec',
       conversationObj.messages.length,
       'messages'
-    ) // 🆕 Log
+    ) //
 
     res.json(conversationObj)
   } catch (error) {
@@ -147,7 +140,7 @@ conversationsRouter.get('/:id', userExtractor, async (req, res, next) => {
   }
 })
 
-// 📌 Créer une nouvelle conversation ou récupérer une existante
+// Créer une nouvelle conversation ou récupérer une existante
 conversationsRouter.post('/', userExtractor, async (req, res, next) => {
   try {
     const { user2Id, user2Name, user2Avatar } = req.body
@@ -176,13 +169,12 @@ conversationsRouter.post('/', userExtractor, async (req, res, next) => {
         await conversation.save()
       }
 
-      // 🆕 AJOUT: Normaliser et déchiffrer les messages avant de renvoyer
       const convObj = normalizeConversation(conversation)
       convObj.messages = convObj.messages.map((msg) => {
         try {
           return {
             ...msg,
-            text: msg.text ? decryptMessage(msg.text) : '', // 🆕 Déchiffrer
+            text: msg.text ? decryptMessage(msg.text) : '',
           }
         } catch (error) {
           console.error('⚠️ Erreur déchiffrement:', error)
@@ -190,7 +182,7 @@ conversationsRouter.post('/', userExtractor, async (req, res, next) => {
         }
       })
 
-      console.log('✅ Conversation existante retournée avec id:', convObj.id) // 🆕 Log
+      console.log('✅ Conversation existante retournée avec id:', convObj.id)
       return res.json(convObj)
     }
 
@@ -208,10 +200,9 @@ conversationsRouter.post('/', userExtractor, async (req, res, next) => {
     })
 
     const savedConversation = await newConversation.save()
-    const normalizedConv = normalizeConversation(savedConversation) // 🆕 Normaliser avec id
+    const normalizedConv = normalizeConversation(savedConversation)
 
-    console.log('✅ Nouvelle conversation créée avec id:', normalizedConv.id) // 🆕 Log
-
+    console.log('✅ Nouvelle conversation créée avec id:', normalizedConv.id)
     res.status(201).json(normalizedConv)
   } catch (error) {
     console.error('❌ Erreur création conversation:', error)
@@ -219,13 +210,12 @@ conversationsRouter.post('/', userExtractor, async (req, res, next) => {
   }
 })
 
-// 📌 Ajouter un message à une conversation
+//  Ajouter un message à une conversation
 conversationsRouter.post(
   '/:id/messages',
   userExtractor,
   async (req, res, next) => {
     try {
-      // 🆕 AJOUT: Validation stricte de l'ID pour éviter "undefined"
       if (!req.params.id || req.params.id === 'undefined') {
         console.error(
           '❌ ID de conversation manquant ou invalide:',
@@ -242,7 +232,6 @@ conversationsRouter.post(
         return res.status(404).json({ error: 'Conversation not found' })
       }
 
-      // Vérifier que l'utilisateur fait partie de la conversation
       if (
         conversation.user1Id !== req.user.id &&
         conversation.user2Id !== req.user.id
@@ -252,14 +241,12 @@ conversationsRouter.post(
 
       const { text, mediaType, mediaUrl, mediaName, mediaSize } = req.body
 
-      // ✅ Validation: soit du texte, soit un média
       if (!text?.trim() && !mediaUrl) {
         return res
           .status(400)
           .json({ error: 'Message text or media is required' })
       }
 
-      // 🆕 AJOUT: Chiffrer le texte du message avant de le sauvegarder
       const encryptedText = text?.trim() ? encryptMessage(text.trim()) : ''
 
       const newMessage = {
@@ -267,8 +254,7 @@ conversationsRouter.post(
         senderId: req.user.id,
         senderName: `${req.user.firstName} ${req.user.lastName}`,
         senderAvatar: req.user.profilePicture,
-        text: encryptedText, // 🆕 Texte chiffré pour la base de données
-        // ✅ Ajout des champs média
+        text: encryptedText,
         mediaType: mediaType || null,
         mediaUrl: mediaUrl || '',
         mediaName: mediaName || '',
@@ -278,7 +264,6 @@ conversationsRouter.post(
       }
 
       conversation.messages.push(newMessage)
-      // 🆕 AJOUT: Chiffrer aussi le lastMessage
       conversation.lastMessage = text?.trim()
         ? encryptMessage(text.trim())
         : `[${mediaType || 'Media'}]`
@@ -288,12 +273,12 @@ conversationsRouter.post(
       console.log(
         '✅ Message ajouté (chiffré) à la conversation:',
         conversation.id
-      ) // 🆕 Log
+      ) //  Log
 
-      // 🆕 AJOUT: Déchiffrer le message avant de l'envoyer via WebSocket
+      //  Déchiffrer le message avant de l'envoyer via WebSocket
       const decryptedMessage = {
         ...newMessage,
-        text: text?.trim() || '', // 🆕 Envoyer le texte en clair via WebSocket
+        text: text?.trim() || '', // Envoyer le texte en clair via WebSocket
       }
 
       // 📡 Émettre l'événement WebSocket
@@ -301,9 +286,9 @@ conversationsRouter.post(
       if (io) {
         io.to(req.params.id).emit('message:receive', {
           conversationId: req.params.id,
-          message: decryptedMessage, // 🆕 Message déchiffré pour le temps réel
+          message: decryptedMessage, //  Message déchiffré pour le temps réel
         })
-        // 🔔 NOUVEAU: Envoyer une notification au destinataire
+        //  Envoyer une notification au destinataire
         // Déterminer qui est le destinataire (l'autre utilisateur)
         const recipientId =
           conversation.user1Id === req.user.id
@@ -332,14 +317,14 @@ conversationsRouter.post(
         )
       }
 
-      // 🆕 AJOUT: Normaliser et déchiffrer tous les messages avant de renvoyer la réponse
+      //  AJOUT: Normaliser et déchiffrer tous les messages avant de renvoyer la réponse
       const responseConversation = normalizeConversation(updatedConversation)
       responseConversation.messages = responseConversation.messages.map(
         (msg) => {
           try {
             return {
               ...msg,
-              text: msg.text ? decryptMessage(msg.text) : '', // 🆕 Déchiffrer
+              text: msg.text ? decryptMessage(msg.text) : '',
             }
           } catch (error) {
             console.error('⚠️ Erreur déchiffrement:', error)
@@ -356,7 +341,7 @@ conversationsRouter.post(
   }
 )
 
-// 📌 Modifier un message
+//  Modifier un message
 conversationsRouter.put(
   '/:id/messages/:messageId',
   userExtractor,
@@ -387,7 +372,7 @@ conversationsRouter.put(
         return res.status(400).json({ error: 'Message text is required' })
       }
 
-      // 🆕 AJOUT: Chiffrer le nouveau texte avant sauvegarde
+      //  AJOUT: Chiffrer le nouveau texte avant sauvegarde
       message.text = encryptMessage(text.trim())
       message.updatedAt = new Date()
 
@@ -400,18 +385,17 @@ conversationsRouter.put(
         io.to(req.params.id).emit('message:updated', {
           conversationId: req.params.id,
           messageId: req.params.messageId,
-          text: text.trim(), // 🆕 Envoyer le texte en clair via WebSocket
+          text: text.trim(), //  Envoyer le texte en clair via WebSocket
         })
       }
 
-      // 🆕 AJOUT: Normaliser et déchiffrer les messages avant de renvoyer
       const responseConversation = normalizeConversation(conversation)
       responseConversation.messages = responseConversation.messages.map(
         (msg) => {
           try {
             return {
               ...msg,
-              text: msg.text ? decryptMessage(msg.text) : '', // 🆕 Déchiffrer
+              text: msg.text ? decryptMessage(msg.text) : '',
             }
           } catch (error) {
             console.error('⚠️ Erreur déchiffrement:', error)
@@ -428,7 +412,7 @@ conversationsRouter.put(
   }
 )
 
-// 📌 Supprimer un message
+//  Supprimer un message
 conversationsRouter.delete(
   '/:id/messages/:messageId',
   userExtractor,
@@ -469,14 +453,13 @@ conversationsRouter.delete(
         })
       }
 
-      // 🆕 AJOUT: Normaliser et déchiffrer les messages restants avant de renvoyer
       const responseConversation = normalizeConversation(conversation)
       responseConversation.messages = responseConversation.messages.map(
         (msg) => {
           try {
             return {
               ...msg,
-              text: msg.text ? decryptMessage(msg.text) : '', // 🆕 Déchiffrer
+              text: msg.text ? decryptMessage(msg.text) : '',
             }
           } catch (error) {
             console.error('⚠️ Erreur déchiffrement:', error)
@@ -493,7 +476,7 @@ conversationsRouter.delete(
   }
 )
 
-// 📌 Marquer les messages comme lus
+//  Marquer les messages comme lus
 conversationsRouter.patch(
   '/:id/read',
   userExtractor,
@@ -515,7 +498,7 @@ conversationsRouter.patch(
       await conversation.save()
       console.log('✅ Messages marqués comme lus dans:', req.params.id)
 
-      // 📡 Émettre l'événement WebSocket
+      // Émettre l'événement WebSocket
       const io = req.app.get('io')
       if (io) {
         io.to(req.params.id).emit('messages:read:update', {
@@ -524,7 +507,7 @@ conversationsRouter.patch(
         })
       }
 
-      // 🆕 AJOUT: Normaliser et déchiffrer les messages avant de renvoyer
+      //  AJOUT: Normaliser et déchiffrer les messages avant de renvoyer
       const responseConversation = normalizeConversation(conversation)
       responseConversation.messages = responseConversation.messages.map(
         (msg) => {
@@ -548,7 +531,7 @@ conversationsRouter.patch(
   }
 )
 
-// 📌 Supprimer une conversation (suppression logique)
+//  Supprimer une conversation (suppression logique)
 conversationsRouter.delete('/:id', userExtractor, async (req, res, next) => {
   try {
     const conversation = await Conversation.findById(req.params.id)

@@ -1,31 +1,28 @@
 const socketIO = require('socket.io')
 const logger = require('./logger')
 
-// Stockage des utilisateurs connectés: { userId: socketId }
 const onlineUsers = new Map()
 
-// Stockage des utilisateurs en train d'écrire: { conversationId: [userId1, userId2] }
 const typingUsers = new Map()
 
-// 🆕 AJOUT: Variable pour stocker l'instance io globalement
 let ioInstance = null
 
 const initializeSocket = (server) => {
   const io = socketIO(server, {
     cors: {
-      origin: 'http://localhost:5173', // URL de votre frontend
+      origin: 'http://localhost:5173',
       methods: ['GET', 'POST'],
       credentials: true,
     },
   })
 
-  // 🆕 AJOUT: Sauvegarder l'instance io pour l'utiliser dans getIO()
+  // Sauvegarder l'instance io pour l'utiliser dans getIO()
   ioInstance = io
 
   io.on('connection', (socket) => {
     logger.info(`🔌 Nouvelle connexion Socket: ${socket.id}`)
 
-    // 📌 Utilisateur se connecte
+    //  Utilisateur se connecte
     socket.on('user:online', (userId) => {
       onlineUsers.set(userId, socket.id)
       logger.info(`✅ Utilisateur ${userId} en ligne`)
@@ -44,7 +41,7 @@ const initializeSocket = (server) => {
       })
     })
 
-    // 📌 Rejoindre une conversation spécifique
+    //  Rejoindre une conversation spécifique
     socket.on('conversation:join', (conversationId) => {
       socket.join(conversationId)
       logger.info(
@@ -52,7 +49,7 @@ const initializeSocket = (server) => {
       )
     })
 
-    // 📌 Quitter une conversation
+    //  Quitter une conversation
     socket.on('conversation:leave', (conversationId) => {
       socket.leave(conversationId)
       logger.info(
@@ -60,7 +57,7 @@ const initializeSocket = (server) => {
       )
     })
 
-    // 📌 Envoyer un message (émis depuis le controller)
+    //  Envoyer un message (émis depuis le controller)
     socket.on('message:send', (data) => {
       const { conversationId, message } = data
 
@@ -72,7 +69,7 @@ const initializeSocket = (server) => {
       logger.info(`💬 Message envoyé dans conversation ${conversationId}`)
     })
 
-    // 📌 Utilisateur en train d'écrire
+    //  Utilisateur en train d'écrire
     socket.on('typing:start', ({ conversationId, userId, userName }) => {
       if (!typingUsers.has(conversationId)) {
         typingUsers.set(conversationId, [])
@@ -93,7 +90,7 @@ const initializeSocket = (server) => {
       logger.info(`⌨️ ${userName} est en train d'écrire dans ${conversationId}`)
     })
 
-    // 📌 Utilisateur arrête d'écrire
+    //  Utilisateur arrête d'écrire
     socket.on('typing:stop', ({ conversationId, userId }) => {
       if (typingUsers.has(conversationId)) {
         const typing = typingUsers.get(conversationId)
@@ -108,7 +105,7 @@ const initializeSocket = (server) => {
       })
     })
 
-    // 📌 Marquer les messages comme lus
+    //  Marquer les messages comme lus
     socket.on('messages:read', ({ conversationId, userId }) => {
       io.to(conversationId).emit('messages:read:update', {
         conversationId,
@@ -120,7 +117,7 @@ const initializeSocket = (server) => {
       )
     })
 
-    // 📌 Déconnexion
+    //  Déconnexion
     socket.on('disconnect', () => {
       let disconnectedUserId = null
       for (const [userId, socketId] of onlineUsers.entries()) {
@@ -147,9 +144,7 @@ const initializeSocket = (server) => {
   return io
 }
 
-// -------------------------------------------
-// NEW ✅ Helper pour émettre vers une room utilisateur
-// -------------------------------------------
+// émettre vers une room utilisateur
 const emitToUserRoom = (io, userId, event, data) => {
   io.to(`user_${userId}`).emit(event, data)
 }
@@ -169,8 +164,7 @@ const isUserOnline = (userId) => {
   return onlineUsers.has(userId)
 }
 
-// 🆕 AJOUT: Fonction pour obtenir l'instance io depuis n'importe où
-// Cela permet d'émettre des notifications depuis les controllers
+// Fonction pour obtenir l'instance io depuis n'importe où
 const getIO = () => {
   if (!ioInstance) {
     throw new Error('Socket.io not initialized! Call initializeSocket first.')
@@ -184,5 +178,5 @@ module.exports = {
   emitToUser,
   emitToUserRoom,
   isUserOnline,
-  getIO, // 🆕 AJOUT: Export de la fonction getIO
+  getIO,
 }

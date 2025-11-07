@@ -7,10 +7,9 @@ const {
   sendPostReportEmail,
 } = require('../utils/emailConfig')
 
-// 🆕 AJOUT: Import du service socket pour les notifications en temps réel
 const { getIO } = require('../utils/socketConfig')
 
-// 📌 Récupérer tous les posts (ou filtrer par userId)
+//  Récupérer tous les posts (ou filtrer par userId)
 postsRouter.get('/', async (req, res, next) => {
   try {
     const { userId } = req.query
@@ -33,20 +32,19 @@ postsRouter.post('/report', async (req, res, next) => {
   try {
     const { postId, reason, additionalInfo } = req.body
 
-    // 🆕 Validation des données
+    //  Validation des données
     if (!postId || !reason) {
       return res.status(400).json({
         error: 'Missing required fields: postId, reason',
       })
     }
 
-    // 🆕 Récupérer les informations du post
+    //  Récupérer les informations du post
     const post = await Post.findById(postId)
     if (!post) {
       return res.status(404).json({ error: 'Post not found' })
     }
 
-    // 🆕 Mapper les codes de raison vers des labels lisibles
     const reasonLabels = {
       spam: 'Spam ou publicité non sollicitée',
       fake: 'Fausse annonce ou arnaque',
@@ -59,7 +57,7 @@ postsRouter.post('/report', async (req, res, next) => {
     }
 
     const reasonLabel = reasonLabels[reason] || reason
-    // 🆕 AJOUT: Enregistrer le signalement dans le post
+    //  AJOUT: Enregistrer le signalement dans le post
     if (!post.reports) {
       post.reports = []
     }
@@ -72,7 +70,7 @@ postsRouter.post('/report', async (req, res, next) => {
 
     await post.save()
     console.log('✅ Signalement enregistré pour le post:', postId)
-    // 🆕 Envoyer l'email à l'administrateur
+    //  Envoyer l'email à l'administrateur
     try {
       await sendPostReportEmail({
         postId: post._id,
@@ -87,13 +85,13 @@ postsRouter.post('/report', async (req, res, next) => {
         reportedAt: new Date().toLocaleString('fr-FR'),
       })
 
-      console.log("✅ Email de signalement envoyé à l'administrateur")
+      console.log(" Email de signalement envoyé à l'administrateur")
     } catch (emailError) {
       console.error('⚠️ Erreur envoi email de signalement:', emailError.message)
-      // 🆕 NOTE: On continue même si l'email échoue
+      //  NOTE: On continue même si l'email échoue
     }
 
-    // 🆕 Retourner une réponse de succès
+    //  Retourner une réponse de succès
     res.status(200).json({
       message: 'Report submitted successfully',
       reported: true,
@@ -104,7 +102,7 @@ postsRouter.post('/report', async (req, res, next) => {
   }
 })
 
-// 📌 Récupérer un post par ID
+//  Récupérer un post par ID
 postsRouter.get('/:id', async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id)
@@ -123,7 +121,7 @@ postsRouter.get('/:id', async (req, res, next) => {
   }
 })
 
-// 📌 Créer un nouveau post (requiert authentification)
+//  Créer un nouveau post (requiert authentification)
 postsRouter.post('/', userExtractor, async (req, res, next) => {
   try {
     const { content, price, region, ville, quartier, type, images, videos } =
@@ -186,7 +184,7 @@ postsRouter.post('/', userExtractor, async (req, res, next) => {
     const savedPost = await newPost.save()
     console.log('✅ Post créé avec succès:', savedPost.id)
 
-    // 📧 Envoyer un email de confirmation
+    //  Envoyer un email de confirmation
     try {
       await sendPostCreatedEmail(user.email, {
         userName: `${user.firstName} ${user.lastName}`,
@@ -209,7 +207,7 @@ postsRouter.post('/', userExtractor, async (req, res, next) => {
   }
 })
 
-// 📌 Mettre à jour un post complet (PUT - requiert authentification)
+//  Mettre à jour un post complet (PUT - requiert authentification)
 postsRouter.put('/:id', userExtractor, async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id)
@@ -273,7 +271,6 @@ postsRouter.put('/:id', userExtractor, async (req, res, next) => {
   }
 })
 
-// 📌 Mise à jour partielle (PATCH) - pour likes, comments, replies, etc.
 postsRouter.patch('/:id', async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id)
@@ -284,7 +281,7 @@ postsRouter.patch('/:id', async (req, res, next) => {
 
     const { likes, comments, action, commentId, replyId, replyData } = req.body
 
-    // ✅ 1️⃣ Mise à jour des likes du post
+    //  Mise à jour des likes du post
     if (likes !== undefined && !comments && !action) {
       const previousLikes = post.likes.length
       post.likes = likes
@@ -292,7 +289,7 @@ postsRouter.patch('/:id', async (req, res, next) => {
 
       console.log(`👍 Post liké/déliké : ${post._id}`)
 
-      // 🆕 AJOUT: Envoyer notification si c'est un nouveau like
+      //  AJOUT: Envoyer notification si c'est un nouveau like
       if (likes.length > previousLikes) {
         const lastLike = likes[likes.length - 1]
         const newLikerId =
@@ -335,7 +332,7 @@ postsRouter.patch('/:id', async (req, res, next) => {
       return res.json(updated)
     }
 
-    // ✅ 2️⃣ Mise à jour complète des commentaires
+    //  Mise à jour complète des commentaires
     if (comments !== undefined && !action) {
       const previousCommentsCount = post.comments.length
       post.comments = comments
@@ -343,7 +340,7 @@ postsRouter.patch('/:id', async (req, res, next) => {
 
       console.log(`💬 Commentaires mis à jour pour le post : ${post._id}`)
 
-      // 🆕 AJOUT: Envoyer notification si c'est un nouveau commentaire
+      //  AJOUT: Envoyer notification si c'est un nouveau commentaire
       if (comments.length > previousCommentsCount) {
         const newComment = comments[comments.length - 1]
         const commentAuthorId = newComment.userId || newComment.user
@@ -393,7 +390,7 @@ postsRouter.patch('/:id', async (req, res, next) => {
       return res.json(updated)
     }
 
-    // ✅ 3️⃣ Actions spécifiques (plus précises)
+    //  Actions spécifiques (plus précises)
     if (action) {
       // --- Ajouter une réponse à un commentaire ---
       if (action === 'addReply' && commentId && replyData) {
@@ -439,7 +436,7 @@ postsRouter.patch('/:id', async (req, res, next) => {
         return res.json(updated)
       }
 
-      // --- Liker / Déliker une réponse ---
+      // - Liker / Déliker une réponse
       if (
         action === 'toggleReplyLike' &&
         commentId &&
@@ -486,7 +483,7 @@ postsRouter.patch('/:id', async (req, res, next) => {
   }
 })
 
-// 📌 Supprimer un post (requiert authentification)
+//  Supprimer un post (requiert authentification)
 postsRouter.delete('/:id', userExtractor, async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id)
@@ -513,4 +510,145 @@ postsRouter.delete('/:id', userExtractor, async (req, res, next) => {
   }
 })
 
+//  ROUTE: Marquer un bien comme OCCUPÉ
+postsRouter.put('/:id/mark-occupied', userExtractor, async (req, res, next) => {
+  try {
+    const { tenantName, tenantContact, note } = req.body
+
+    // Récupérer le post
+    const post = await Post.findById(req.params.id)
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' })
+    }
+
+    //  VÉRIFICATION: Seul le propriétaire peut marquer son bien comme occupé
+    if (post.userId.toString() !== req.user.id) {
+      return res.status(403).json({
+        error: 'Only the owner can mark this property as occupied',
+      })
+    }
+
+    //  VÉRIFICATION: Éviter de marquer un bien déjà occupé
+    if (post.occupancyStatus.isOccupied) {
+      return res.status(400).json({
+        error: 'This property is already marked as occupied',
+      })
+    }
+
+    // Marquer comme occupé
+    const occupiedBy = {
+      name: tenantName || '',
+      contact: tenantContact || '',
+    }
+
+    await post.markAsOccupied(occupiedBy, note)
+
+    console.log(`✅ Post ${post.id} marked as occupied by user ${req.user.id}`)
+
+    res.json({
+      message: 'Property marked as occupied successfully',
+      post: post.toJSON(),
+    })
+  } catch (error) {
+    console.error('❌ Error marking post as occupied:', error)
+    next(error)
+  }
+})
+
+// ROUTE: Marquer un bien comme DISPONIBLE
+postsRouter.put(
+  '/:id/mark-available',
+  userExtractor,
+  async (req, res, next) => {
+    try {
+      const { note } = req.body
+
+      // Récupérer le post
+      const post = await Post.findById(req.params.id)
+
+      if (!post) {
+        return res.status(404).json({ error: 'Post not found' })
+      }
+
+      //  VÉRIFICATION: Seul le propriétaire peut marquer son bien comme disponible
+      if (post.userId.toString() !== req.user.id) {
+        return res.status(403).json({
+          error: 'Only the owner can mark this property as available',
+        })
+      }
+
+      //  VÉRIFICATION: Éviter de marquer un bien déjà disponible
+      if (!post.occupancyStatus.isOccupied) {
+        return res.status(400).json({
+          error: 'This property is already marked as available',
+        })
+      }
+
+      // Marquer comme disponible
+      await post.markAsAvailable(note)
+
+      console.log(
+        `✅ Post ${post.id} marked as available by user ${req.user.id}`
+      )
+
+      res.json({
+        message: 'Property marked as available successfully',
+        post: post.toJSON(),
+      })
+    } catch (error) {
+      console.error('❌ Error marking post as available:', error)
+      next(error)
+    }
+  }
+)
+
+//  ROUTE: Récupérer l'historique d'occupation d'un bien
+postsRouter.get('/:id/occupancy-history', async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.id).populate(
+      'occupancyStatus.history.changedBy',
+      'firstName lastName'
+    )
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' })
+    }
+
+    res.json({
+      postId: post.id,
+      currentStatus: post.occupancyStatus.isOccupied ? 'occupied' : 'available',
+      history: post.occupancyStatus.history,
+    })
+  } catch (error) {
+    console.error('❌ Error fetching occupancy history:', error)
+    next(error)
+  }
+})
+
+//  ROUTE: Filtrer les biens par statut d'occupation
+
+postsRouter.get('/', async (req, res, next) => {
+  try {
+    const { available, occupied } = req.query
+
+    let filter = {}
+
+    // Filtrer par disponibilité
+    if (available === 'true') {
+      filter['occupancyStatus.isOccupied'] = false
+    } else if (occupied === 'true') {
+      filter['occupancyStatus.isOccupied'] = true
+    }
+
+    const posts = await Post.find(filter).sort({ createdAt: -1 })
+
+    res.json(posts)
+  } catch (error) {
+    console.error('❌ Error fetching posts:', error)
+    next(error)
+  }
+})
+
+module.exports = postsRouter
 module.exports = postsRouter

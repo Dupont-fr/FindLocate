@@ -100,7 +100,63 @@ const postSchema = new mongoose.Schema({
       },
     },
   ],
+
+  occupancyStatus: {
+    isOccupied: {
+      type: Boolean,
+      default: false, // Par défaut : disponible
+    },
+    occupiedAt: {
+      type: Date, // Date à laquelle le bien a été marqué comme occupé
+    },
+    occupiedBy: {
+      // Informations du locataire (optionnel)
+      name: String,
+      contact: String,
+    },
+    occupiedNote: {
+      type: String, // Note du propriétaire (ex: "Loué jusqu'en décembre 2025")
+      maxlength: 200,
+    },
+    history: [
+      {
+        status: {
+          type: String,
+          enum: ['available', 'occupied'], // Historique des changements
+        },
+        changedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        changedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        note: String, // Raison du changement
+      },
+    ],
+  },
 })
+
+postSchema.virtual('isAvailable').get(function () {
+  return !this.occupancyStatus.isOccupied
+})
+
+postSchema.methods.markAsOccupied = function (occupiedBy, note) {
+  this.occupancyStatus.isOccupied = true
+  this.occupancyStatus.occupiedAt = new Date()
+  this.occupancyStatus.occupiedBy = occupiedBy || {}
+  this.occupancyStatus.occupiedNote = note || ''
+  // Ajouter à l'historique
+  this.occupancyStatus.history.push({
+    status: 'occupied',
+    changedAt: new Date(),
+    changedBy: this.userId,
+    note: note || 'Bien marqué comme occupé',
+  })
+
+  return this.save()
+}
 
 postSchema.set('toJSON', {
   transform: (document, returnedObject) => {
@@ -108,14 +164,7 @@ postSchema.set('toJSON', {
     delete returnedObject._id
     delete returnedObject.__v
   },
-})
-
-postSchema.set('toJSON', {
-  transform: (document, returnedObject) => {
-    returnedObject.id = returnedObject._id.toString()
-    delete returnedObject._id
-    delete returnedObject.__v
-  },
+  virtuals: true,
 })
 
 module.exports = mongoose.model('Post', postSchema)
