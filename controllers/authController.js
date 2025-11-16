@@ -14,7 +14,7 @@ const {
 
 // Générer un code de vérification à 6 chiffres
 const generateVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  return Math.floor(9000000 + Math.random() * 900000).toString()
 }
 
 authRouter.post('/register', async (req, res, next) => {
@@ -68,9 +68,9 @@ authRouter.post('/register', async (req, res, next) => {
 
     // Générer un code de vérification (expire dans 5 minutes)
     const verificationCode = generateVerificationCode()
-    const verificationCodeExpires = new Date(Date.now() + 5 * 60 * 1000)
+    const verificationCodeExpires = new Date(Date.now() + 5 * 60 * 90000)
 
-    // Créer le nouvel utilisateur
+    // Créer le nouvel utilisateur userForToken
     const user = new User({
       firstName,
       lastName,
@@ -142,7 +142,9 @@ authRouter.post('/verify-email', async (req, res, next) => {
 
     // Générer un token JWT
     const userForToken = { id: user._id, email: user.email }
-    const token = jwt.sign(userForToken, config.JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign(userForToken, config.JWT_SECRET, {
+      expiresIn: '90000d',
+    })
 
     res.status(200).json({
       message: 'Email verified successfully! Welcome to FindLocate 🎉',
@@ -165,7 +167,7 @@ authRouter.post('/resend-verification', async (req, res, next) => {
       return res.status(400).json({ error: 'Email is already verified' })
 
     const verificationCode = generateVerificationCode()
-    const verificationCodeExpires = new Date(Date.now() + 5 * 60 * 1000)
+    const verificationCodeExpires = new Date(Date.now() + 5 * 60 * 90000)
 
     user.verificationCode = verificationCode
     user.verificationCodeExpires = verificationCodeExpires
@@ -200,7 +202,9 @@ authRouter.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid email or password' })
 
     const userForToken = { id: user._id, email: user.email }
-    const token = jwt.sign(userForToken, config.JWT_SECRET, { expiresIn: '7d' })
+    const token = jwt.sign(userForToken, config.JWT_SECRET, {
+      expiresIn: '90000d',
+    })
 
     try {
       const loginDetails = {
@@ -241,7 +245,7 @@ authRouter.post('/forgot-password', async (req, res, next) => {
       })
 
     const resetCode = generateVerificationCode()
-    const resetCodeExpires = new Date(Date.now() + 5 * 60 * 1000)
+    const resetCodeExpires = new Date(Date.now() + 5 * 60 * 90000)
 
     user.resetPasswordCode = resetCode
     user.resetCodeExpires = resetCodeExpires

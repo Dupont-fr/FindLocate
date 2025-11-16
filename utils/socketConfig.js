@@ -20,18 +20,17 @@ const initializeSocket = (server) => {
   ioInstance = io
 
   io.on('connection', (socket) => {
-    logger.info(`🔌 Nouvelle connexion Socket: ${socket.id}`)
+    logger.info(`  Nouvelle connexion Socket: ${socket.id}`)
 
     //  Utilisateur se connecte
     socket.on('user:online', (userId) => {
       onlineUsers.set(userId, socket.id)
       logger.info(`✅ Utilisateur ${userId} en ligne`)
 
-      // NEW ✅ L'utilisateur rejoint sa room personnelle
       // Cela permet d'envoyer des notifications privées via io.to(`user_${userId}`)
       socket.join(`user_${userId}`)
       logger.info(
-        `🏠 Utilisateur ${userId} a rejoint sa room personnelle user_${userId}`
+        ` Utilisateur ${userId} a rejoint sa room personnelle user_${userId}`
       )
 
       // Notifier les autres
@@ -45,7 +44,7 @@ const initializeSocket = (server) => {
     socket.on('conversation:join', (conversationId) => {
       socket.join(conversationId)
       logger.info(
-        `📥 Socket ${socket.id} a rejoint la conversation ${conversationId}`
+        ` Socket ${socket.id} a rejoint la conversation ${conversationId}`
       )
     })
 
@@ -53,7 +52,7 @@ const initializeSocket = (server) => {
     socket.on('conversation:leave', (conversationId) => {
       socket.leave(conversationId)
       logger.info(
-        `📤 Socket ${socket.id} a quitté la conversation ${conversationId}`
+        ` Socket ${socket.id} a quitté la conversation ${conversationId}`
       )
     })
 
@@ -137,7 +136,7 @@ const initializeSocket = (server) => {
         logger.info(`❌ Utilisateur ${disconnectedUserId} hors ligne`)
       }
 
-      logger.info(`🔌 Déconnexion Socket: ${socket.id}`)
+      logger.info(` Déconnexion Socket: ${socket.id}`)
     })
   })
 

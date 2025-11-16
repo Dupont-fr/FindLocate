@@ -3,9 +3,7 @@ const config = require('./config')
 
 if (config.SENDGRID_API_KEY) {
   sgMail.setApiKey(config.SENDGRID_API_KEY)
-
-  sgMail.setTimeout(80000) // 30 secondes
-
+  sgMail.setTimeout(80000)
   console.log('✅ SendGrid API key configured')
 } else {
   console.warn(
@@ -14,7 +12,6 @@ if (config.SENDGRID_API_KEY) {
 }
 
 const sendEmail = async (to, subject, html, retries = 3) => {
-  //  Validation des paramètres
   if (!config.SENDGRID_API_KEY) {
     console.error('❌ SendGrid API key not configured')
     throw new Error('Email service not configured')
@@ -30,24 +27,65 @@ const sendEmail = async (to, subject, html, retries = 3) => {
     throw new Error('Invalid email parameters')
   }
 
-  //  Construction du message avec validation
+  // ✅ AMÉLIORATIONS ANTI-SPAM
   const msg = {
     to: to.trim(),
     from: {
       email: config.EMAIL_USER,
-      name: 'FindLocate',
+      name: 'FindLocate', // Nom cohérent et professionnel
     },
     subject: subject,
     html: html,
 
+    // ✅ Ajout du texte brut (obligatoire pour éviter le spam)
+    text: html
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim(),
+
+    // ✅ Catégories pour le suivi (aide à la réputation)
+    categories: ['transactional', 'findlocate-notifications'],
+
+    // ✅ Headers personnalisés pour authentification
+    customArgs: {
+      app: 'FindLocate',
+      environment: process.env.NODE_ENV || 'production',
+    },
+
+    // ✅ Paramètres de tracking optimisés
     trackingSettings: {
       clickTracking: {
-        enable: false,
+        enable: false, // Désactivé pour éviter les liens suspects
       },
       openTracking: {
-        enable: false,
+        enable: false, // Désactivé pour éviter les pixels de tracking
+      },
+      subscriptionTracking: {
+        enable: false, // Pas de lien de désinscription automatique
       },
     },
+
+    // ✅ Configuration pour la délivrabilité
+    mailSettings: {
+      bypassListManagement: {
+        enable: false, // Respecte les listes de suppression
+      },
+      footer: {
+        enable: false, // Pas de footer automatique SendGrid
+      },
+      sandboxMode: {
+        enable: false, // Mode production
+      },
+    },
+
+    // ✅ Headers supplémentaires pour l'authentification
+    headers: {
+      'X-Entity-Ref-ID': `findlocate-${Date.now()}`,
+      'List-Unsubscribe': `<mailto:dupontdjeague@gmail.com?subject=Unsubscribe>`,
+    },
+
+    // ✅ Type de contenu
+    contentType: 'text/html',
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -71,7 +109,6 @@ const sendEmail = async (to, subject, html, retries = 3) => {
         error.message
       )
 
-      // 🆕 Log détaillé des erreurs
       if (error.response) {
         console.error('📋 Error details:', {
           statusCode: error.code,
@@ -79,7 +116,6 @@ const sendEmail = async (to, subject, html, retries = 3) => {
         })
       }
 
-      //  Si c'est la dernière tentative, on lance l'erreur
       if (attempt === retries) {
         let errorMessage = 'Failed to send email'
 
@@ -101,7 +137,6 @@ const sendEmail = async (to, subject, html, retries = 3) => {
         throw new Error(errorMessage)
       }
 
-      //  Attendre avant de réessayer (délai exponentiel)
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
       console.log(`⏳ Waiting ${delay}ms before retry...`)
       await new Promise((resolve) => setTimeout(resolve, delay))
@@ -109,7 +144,6 @@ const sendEmail = async (to, subject, html, retries = 3) => {
   }
 }
 
-// Test de connexion SendGrid
 const testEmailConnection = async () => {
   try {
     if (!config.SENDGRID_API_KEY) {
@@ -117,7 +151,6 @@ const testEmailConnection = async () => {
       return false
     }
 
-    //  Test simple sans envoyer d'email
     console.log('✅ SendGrid configuration OK - Ready to send')
     return true
   } catch (error) {
@@ -126,214 +159,331 @@ const testEmailConnection = async () => {
   }
 }
 
-//  FONCTION INCHANGÉE - Envoi email de vérification
-const sendVerificationEmail = async (email, code, firstName) => {
-  const subject = '✅ Your FindLocate Verification Code'
-  const html = `
-    <div style="font-family: Arial, sans-serif; color: #333;">
-      <h2 style="background: linear-gradient(135deg,#667eea,#764ba2); color:white; padding:15px; text-align:center; border-radius:10px 10px 0 0;">
-        Welcome to FindLocate 🎉
-      </h2>
-      <div style="padding:25px; background:#f9f9f9; border-radius:0 0 10px 10px;">
-        <p>Hello <strong>${firstName}</strong>,</p>
-        <p>Thank you for registering! Here's your verification code:</p>
-        <div style="background:white; border:3px dashed #667eea; text-align:center; padding:15px; border-radius:10px;">
-          <span style="font-size:32px; font-weight:bold; color:#667eea; letter-spacing:6px;">${code}</span>
-        </div>
-        <p style="margin-top:20px;">⏰ This code will expire in <strong>5 minutes</strong>.</p>
-        <p>If you didn't sign up, please ignore this email.</p>
-        <p>— The FindLocate Team</p>
-        <p>© ${new Date().getFullYear()} FindLocate. All rights reserved.</p>
-        <p>You can contact dupontdjeague@gmail.com, for more informations about FindLocate.</p>
-      </div>
-    </div>
+// ✅ Template amélioré avec structure anti-spam
+const getEmailTemplate = (content, headerColor, headerTitle) => {
+  return `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${headerTitle}</title>
+    </head>
+    <body style="margin:0; padding:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color:#f4f4f4;">
+      <table role="presentation" style="width:100%; border-collapse:collapse; background-color:#f4f4f4; padding:20px 0;">
+        <tr>
+          <td align="center">
+            <table role="presentation" style="width:100%; max-width:600px; border-collapse:collapse; background-color:white; border-radius:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+              <!-- Header -->
+              <tr>
+                <td style="background: ${headerColor}; color:white; padding:30px 20px; text-align:center; border-radius:12px 12px 0 0;">
+                  <h1 style="margin:0; font-size:24px; font-weight:600;">${headerTitle}</h1>
+                </td>
+              </tr>
+              
+              <!-- Content -->
+              <tr>
+                <td style="padding:40px 30px;">
+                  ${content}
+                </td>
+              </tr>
+              
+              <!-- Footer -->
+              <tr>
+                <td style="background-color:#f9fafb; padding:30px; text-align:center; border-radius:0 0 12px 12px; border-top:1px solid #e5e7eb;">
+                  <p style="margin:0 0 10px 0; font-size:14px; color:#6b7280;">
+                    <strong>FindLocate</strong> - Votre plateforme immobilière de confiance
+                  </p>
+                  <p style="margin:0 0 15px 0; font-size:12px; color:#9ca3af;">
+                    Cet email est envoyé depuis une adresse de notification.<br>
+                    Pour toute question, contactez-nous à <a href="mailto:dupontdjeague@gmail.com" style="color:#1877f2; text-decoration:none;">dupontdjeague@gmail.com</a>
+                  </p>
+                  <p style="margin:0; font-size:11px; color:#9ca3af;">
+                    © ${new Date().getFullYear()} FindLocate. Tous droits réservés.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `
+}
+
+const sendVerificationEmail = async (email, code, firstName) => {
+  const subject = 'Vérifiez votre compte FindLocate'
+
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour <strong>${firstName}</strong>,</p>
+    <p style="margin:0 0 20px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Merci de vous être inscrit sur FindLocate. Pour activer votre compte, veuillez utiliser le code de vérification ci-dessous :
+    </p>
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <div style="background:#f0f9ff; border:2px solid #0ea5e9; padding:20px; border-radius:8px; display:inline-block;">
+            <span style="font-size:36px; font-weight:bold; color:#0284c7; letter-spacing:8px; font-family:monospace;">${code}</span>
+          </div>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:20px 0 10px 0; font-size:14px; color:#6b7280;">
+      ⏰ Ce code expirera dans <strong>5 minutes</strong>
+    </p>
+    <p style="margin:10px 0 0 0; font-size:13px; color:#9ca3af; font-style:italic;">
+      Si vous n'avez pas demandé cette vérification, vous pouvez ignorer cet email en toute sécurité.
+    </p>
+  `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #0ea5e9, #0284c7)',
+    '✅ Vérification de compte'
+  )
 
   await sendEmail(email, subject, html)
   console.log('📩 Verification email sent to:', email)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de réinitialisation mot de passe
 const sendPasswordResetEmail = async (email, code, firstName) => {
-  const subject = '🔐 Password Reset Code - FindLocate'
-  const html = `
-    <div style="font-family: Arial, sans-serif; color: #333;">
-      <h2 style="background: linear-gradient(135deg,#f093fb,#f5576c); color:white; padding:15px; text-align:center; border-radius:10px 10px 0 0;">
-        Password Reset Request
-      </h2>
-      <div style="padding:25px; background:#f9f9f9; border-radius:0 0 10px 10px;">
-        <p>Hello <strong>${firstName}</strong>,</p>
-        <p>We received a request to reset your password. Here's your code:</p>
-        <div style="background:white; border:3px dashed #f5576c; text-align:center; padding:15px; border-radius:10px;">
-          <span style="font-size:32px; font-weight:bold; color:#f5576c; letter-spacing:6px;">${code}</span>
-        </div>
-        <p style="margin-top:20px;">⏰ This code expires in <strong>5 minutes</strong>.</p>
-        <p>If you didn't request this, you can ignore this email.</p>
-        <p>— The FindLocate Team</p>
-        <p>© ${new Date().getFullYear()} FindLocate. All rights reserved.</p>
-        <p>You can contact dupontdjeague@gmail.com, for more informations about FindLocate.</p>
-      </div>
-    </div>
+  const subject = 'Réinitialisation de votre mot de passe FindLocate'
+
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour <strong>${firstName}</strong>,</p>
+    <p style="margin:0 0 20px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte. Utilisez le code ci-dessous pour continuer :
+    </p>
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <div style="background:#fef2f2; border:2px solid #ef4444; padding:20px; border-radius:8px; display:inline-block;">
+            <span style="font-size:36px; font-weight:bold; color:#dc2626; letter-spacing:8px; font-family:monospace;">${code}</span>
+          </div>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:20px 0 10px 0; font-size:14px; color:#6b7280;">
+      ⏰ Ce code expirera dans <strong>5 minutes</strong>
+    </p>
+    <p style="margin:10px 0 0 0; font-size:13px; color:#9ca3af; font-style:italic;">
+      Si vous n'avez pas demandé cette réinitialisation, veuillez ignorer cet email et votre mot de passe restera inchangé.
+    </p>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #ef4444, #dc2626)',
+    '🔐 Réinitialisation de mot de passe'
+  )
 
   await sendEmail(email, subject, html)
   console.log('📩 Password reset email sent to:', email)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de confirmation de création d'annonce
 const sendPostCreatedEmail = async (userEmail, postData) => {
   const { userName, postTitle, postType, location, price } = postData
 
-  const subject = '🎉 Votre annonce a été publiée avec succès !'
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; padding:20px; border:1px solid #ddd; border-radius:10px;">
-      <h2 style="color:#1877f2; text-align:center;">✅ Annonce publiée avec succès</h2>
-      <p>Bonjour <strong>${userName}</strong>,</p>
-      <p>Votre annonce a été publiée avec succès sur FindLocate !</p>
+  const subject = 'Votre annonce a été publiée sur FindLocate'
 
-      <div style="background:#f5f5f5; padding:15px; border-radius:8px;">
-        <h3 style="color:#333;">📋 Détails de l'annonce :</h3>
-        <p><strong>Type :</strong> ${postType}</p>
-        <p><strong>Description :</strong> ${postTitle}</p>
-        <p><strong>Localisation :</strong> ${location}</p>
-        <p><strong>Prix :</strong> ${price}</p>
-      </div>
-
-      <div style="text-align:center; margin-top:25px;">
-        <a href="${config.FRONTEND_URL || 'http://localhost:5173'}"
-           style="background-color:#1877f2; color:white; padding:12px 30px; text-decoration:none; border-radius:6px;">
-           Voir mon annonce
-        </a>
-      </div>
-
-      <p style="margin-top:30px; font-size:13px; color:#666; text-align:center;">
-        Vous recevez cet email car vous avez publié une annonce sur FindLocate.<br>
-        Si vous n'êtes pas à l'origine de cette action, contactez-nous immédiatement.
-      </p>
-
-      <p>© ${new Date().getFullYear()} FindLocate. All rights reserved.</p>
-      <p>You can contact dupontdjeague@gmail.com, for more informations about FindLocate.</p>
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour <strong>${userName}</strong>,</p>
+    <p style="margin:0 0 20px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Félicitations ! Votre annonce a été publiée avec succès sur FindLocate.
+    </p>
+    
+    <div style="background:#f9fafb; border-left:4px solid #10b981; padding:20px; border-radius:6px; margin:25px 0;">
+      <h3 style="margin:0 0 15px 0; color:#059669; font-size:16px;">📋 Détails de votre annonce</h3>
+      <table role="presentation" style="width:100%; font-size:14px; color:#4b5563;">
+        <tr>
+          <td style="padding:5px 0;"><strong>Type :</strong></td>
+          <td style="padding:5px 0;">${postType}</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;"><strong>Description :</strong></td>
+          <td style="padding:5px 0;">${postTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;"><strong>Localisation :</strong></td>
+          <td style="padding:5px 0;">${location}</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;"><strong>Prix :</strong></td>
+          <td style="padding:5px 0;">${price}</td>
+        </tr>
+      </table>
     </div>
+
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <a href="${config.FRONTEND_URL || 'http://localhost:5173'}" 
+             style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
+            Voir mon annonce
+          </a>
+        </td>
+      </tr>
+    </table>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #10b981, #059669)',
+    '🎉 Annonce publiée'
+  )
 
   await sendEmail(userEmail, subject, html)
   console.log('📩 Post created confirmation sent to:', userEmail)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de bienvenue
 const sendWelcomeEmail = async (userEmail, userName) => {
-  const subject = '👋 Bienvenue sur FindLocate !'
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; padding:20px; border:1px solid #ddd; border-radius:10px;">
-      <h2 style="color:#1877f2; text-align:center;">Bienvenue ${userName}! 🎉</h2>
-      <p>Nous sommes ravis de vous accueillir sur FindLocate, la plateforme qui facilite vos annonces immobilières.</p>
-      <ul>
-        <li>📝 Publiez vos annonces facilement</li>
-        <li>🔍 Recherchez des logements</li>
-        <li>💬 Contactez directement les propriétaires</li>
-        <li>❤️ Sauvegardez vos annonces préférées</li>
-        <li>🌍 Aidez-nous à agrandir la communauté</li>
+  const subject = 'Bienvenue sur FindLocate !'
+
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:18px; color:#374151;">Bienvenue <strong>${userName}</strong> ! 🎉</p>
+    <p style="margin:0 0 25px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Nous sommes ravis de vous accueillir sur FindLocate, votre plateforme de confiance pour l'immobilier.
+    </p>
+    
+    <div style="background:#f0f9ff; border-radius:8px; padding:25px; margin:25px 0;">
+      <h3 style="margin:0 0 15px 0; color:#0284c7; font-size:16px;">🚀 Commencez dès maintenant</h3>
+      <ul style="margin:0; padding-left:20px; font-size:14px; color:#4b5563; line-height:2;">
+        <li>Publiez vos annonces facilement</li>
+        <li>Recherchez des logements</li>
+        <li>Contactez directement les propriétaires</li>
+        <li>Sauvegardez vos annonces préférées</li>
       </ul>
-
-      <div style="text-align:center; margin-top:25px;">
-        <a href="${config.FRONTEND_URL || 'http://localhost:5173'}"
-           style="background-color:#1877f2; color:white; padding:12px 30px; text-decoration:none; border-radius:6px;">
-           Commencer maintenant
-        </a>
-      </div>
-
-      <p style="margin-top:30px; font-size:13px; color:#666; text-align:center;">
-        © ${new Date().getFullYear()} FindLocate. All rights reserved.<br>
-        You can contact dupontdjeague@gmail.com for more information about FindLocate.
-      </p>
     </div>
+
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <a href="${config.FRONTEND_URL || 'http://localhost:5173'}" 
+             style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
+            Découvrir FindLocate
+          </a>
+        </td>
+      </tr>
+    </table>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #1877f2, #0c5bd8)',
+    '👋 Bienvenue'
+  )
 
   await sendEmail(userEmail, subject, html)
   console.log('📩 Welcome email sent to:', userEmail)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de connexion réussie
 const sendLoginSuccessEmail = async (userEmail, userName, loginDetails) => {
   const { loginTime, ipAddress, device } = loginDetails
 
-  const subject = '✅ Connexion réussie à votre compte FindLocate'
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; padding:20px; border:1px solid #ddd; border-radius:10px;">
-      <h2 style="color:#28a745; text-align:center;">🔐 Connexion réussie</h2>
-      <p>Bonjour <strong>${userName}</strong>,</p>
-      <p>Vous vous êtes connecté(e) avec succès à votre compte FindLocate.</p>
+  const subject = 'Nouvelle connexion à votre compte FindLocate'
 
-      <div style="background:#f5f5f5; padding:15px; border-radius:8px; margin:20px 0;">
-        <h3 style="color:#333; margin-top:0;">📊 Détails de la connexion :</h3>
-        <p><strong>Date et heure :</strong> ${loginTime}</p>
-        <p><strong>Adresse IP :</strong> ${ipAddress || 'Non disponible'}</p>
-        <p><strong>Appareil :</strong> ${device || 'Non disponible'}</p>
-      </div>
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour <strong>${userName}</strong>,</p>
+    <p style="margin:0 0 20px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Une nouvelle connexion a été détectée sur votre compte FindLocate.
+    </p>
 
-      <div style="background:#fff3cd; border-left:4px solid #ffc107; padding:15px; margin:20px 0;">
-        <p style="margin:0;"><strong>⚠️ Ce n'était pas vous ?</strong></p>
-        <p style="margin:5px 0 0 0;">Si vous n'êtes pas à l'origine de cette connexion, veuillez réinitialiser votre mot de passe immédiatement et nous contacter.</p>
-      </div>
+    <div style="background:#f0fdf4; border-left:4px solid #10b981; padding:20px; border-radius:6px; margin:25px 0;">
+      <h3 style="margin:0 0 15px 0; color:#059669; font-size:16px;">📊 Détails de la connexion</h3>
+      <table role="presentation" style="width:100%; font-size:14px; color:#4b5563;">
+        <tr>
+          <td style="padding:5px 0;"><strong>Date et heure :</strong></td>
+          <td style="padding:5px 0;">${loginTime}</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;"><strong>Adresse IP :</strong></td>
+          <td style="padding:5px 0;">${ipAddress || 'Non disponible'}</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;"><strong>Appareil :</strong></td>
+          <td style="padding:5px 0;">${device || 'Non disponible'}</td>
+        </tr>
+      </table>
+    </div>
 
-      <div style="text-align:center; margin-top:25px;">
-        <a href="${config.FRONTEND_URL}/forgot-password"
-           style="background-color:#dc3545; color:white; padding:12px 30px; text-decoration:none; border-radius:6px;">
-           Réinitialiser mon mot de passe
-        </a>
-      </div>
-
-      <p style="margin-top:30px; font-size:13px; color:#666; text-align:center;">
-        © ${new Date().getFullYear()} FindLocate. All rights reserved.<br>
-        Contact: dupontdjeague@gmail.com
+    <div style="background:#fff7ed; border-left:4px solid #f59e0b; padding:15px; border-radius:6px; margin:20px 0;">
+      <p style="margin:0; font-size:14px; color:#92400e;">
+        <strong>⚠️ Ce n'était pas vous ?</strong><br>
+        Si vous ne reconnaissez pas cette connexion, réinitialisez votre mot de passe immédiatement.
       </p>
     </div>
+
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <a href="${config.FRONTEND_URL}/forgot-password" 
+             style="display:inline-block; background-color:#dc3545; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
+            Réinitialiser mon mot de passe
+          </a>
+        </td>
+      </tr>
+    </table>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #10b981, #059669)',
+    '🔐 Nouvelle connexion'
+  )
 
   await sendEmail(userEmail, subject, html)
   console.log('📩 Login success email sent to:', userEmail)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de succès réinitialisation mot de passe
 const sendPasswordResetSuccessEmail = async (userEmail, userName) => {
-  const subject = '✅ Votre mot de passe a été réinitialisé avec succès'
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; padding:20px; border:1px solid #ddd; border-radius:10px;">
-      <h2 style="color:#28a745; text-align:center;">🔒 Mot de passe réinitialisé</h2>
-      <p>Bonjour <strong>${userName}</strong>,</p>
-      <p>Votre mot de passe a été réinitialisé avec succès.</p>
+  const subject = 'Votre mot de passe a été modifié'
 
-      <div style="background:#d4edda; border-left:4px solid #28a745; padding:15px; margin:20px 0;">
-        <p style="margin:0;"><strong>✅ Action confirmée</strong></p>
-        <p style="margin:5px 0 0 0;">Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
-      </div>
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour <strong>${userName}</strong>,</p>
+    <p style="margin:0 0 20px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
+    </p>
 
-      <div style="background:#fff3cd; border-left:4px solid #ffc107; padding:15px; margin:20px 0;">
-        <p style="margin:0;"><strong>⚠️ Ce n'était pas vous ?</strong></p>
-        <p style="margin:5px 0 0 0;">Si vous n'avez pas demandé cette réinitialisation, contactez-nous immédiatement.</p>
-      </div>
-
-      <div style="text-align:center; margin-top:25px;">
-        <a href="${config.FRONTEND_URL}/login"
-           style="background-color:#1877f2; color:white; padding:12px 30px; text-decoration:none; border-radius:6px;">
-           Se connecter
-        </a>
-      </div>
-
-      <p style="margin-top:30px; font-size:13px; color:#666; text-align:center;">
-        © ${new Date().getFullYear()} FindLocate. All rights reserved.<br>
-        Contact: dupontdjeague@gmail.com
+    <div style="background:#f0fdf4; border-left:4px solid #10b981; padding:20px; border-radius:6px; margin:25px 0;">
+      <p style="margin:0; font-size:14px; color:#065f46;">
+        <strong>✅ Changement confirmé</strong><br>
+        Votre compte est maintenant sécurisé avec votre nouveau mot de passe.
       </p>
     </div>
+
+    <div style="background:#fff7ed; border-left:4px solid #f59e0b; padding:15px; border-radius:6px; margin:20px 0;">
+      <p style="margin:0; font-size:14px; color:#92400e;">
+        <strong>⚠️ Ce n'était pas vous ?</strong><br>
+        Si vous n'avez pas effectué ce changement, contactez-nous immédiatement à dupontdjeague@gmail.com
+      </p>
+    </div>
+
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <a href="${config.FRONTEND_URL}/login" 
+             style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
+            Se connecter
+          </a>
+        </td>
+      </tr>
+    </table>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #10b981, #059669)',
+    '✅ Mot de passe modifié'
+  )
 
   await sendEmail(userEmail, subject, html)
   console.log('📩 Password reset success email sent to:', userEmail)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de mise à jour profil
 const sendProfileUpdateEmail = async (userEmail, userName, updatedFields) => {
   const fieldsList = Object.keys(updatedFields)
+    .filter((key) => key !== 'userId')
     .map((key) => {
       const displayNames = {
         firstName: 'Prénom',
@@ -342,104 +492,95 @@ const sendProfileUpdateEmail = async (userEmail, userName, updatedFields) => {
         profilePicture: 'Photo de profil',
         password: 'Mot de passe',
       }
-      return `<li>${displayNames[key] || key}</li>`
+      return `<li style="padding:5px 0;">${displayNames[key] || key}</li>`
     })
     .join('')
 
-  const subject = '✅ Votre profil a été mis à jour'
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; padding:20px; border:1px solid #ddd; border-radius:10px;">
-      <h2 style="color:#1877f2; text-align:center;">📝 Profil mis à jour</h2>
-      <p>Bonjour <strong>${userName}</strong>,</p>
-      <p>Les informations suivantes de votre profil ont été mises à jour avec succès :</p>
+  const subject = 'Votre profil FindLocate a été mis à jour'
 
-      <div style="background:#f5f5f5; padding:15px; border-radius:8px; margin:20px 0;">
-        <h3 style="color:#333; margin-top:0;">✏️ Champs modifiés :</h3>
-        <ul style="margin:10px 0; padding-left:20px;">
-          ${fieldsList}
-        </ul>
-      </div>
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour <strong>${userName}</strong>,</p>
+    <p style="margin:0 0 20px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Les informations suivantes de votre profil ont été modifiées :
+    </p>
 
-      <div style="background:#d1ecf1; border-left:4px solid #0c5460; padding:15px; margin:20px 0;">
-        <p style="margin:0;"><strong>💡 Astuce</strong></p>
-        <p style="margin:5px 0 0 0;">Gardez votre profil à jour pour améliorer votre visibilité sur FindLocate.</p>
-      </div>
+    <div style="background:#f9fafb; border-left:4px solid #1877f2; padding:20px; border-radius:6px; margin:25px 0;">
+      <h3 style="margin:0 0 15px 0; color:#1877f2; font-size:16px;">✏️ Modifications effectuées</h3>
+      <ul style="margin:0; padding-left:20px; font-size:14px; color:#4b5563; line-height:1.8;">
+        ${fieldsList}
+      </ul>
+    </div>
 
-      <div style="background:#fff3cd; border-left:4px solid #ffc107; padding:15px; margin:20px 0;">
-        <p style="margin:0;"><strong>⚠️ Ce n'était pas vous ?</strong></p>
-        <p style="margin:5px 0 0 0;">Si vous n'avez pas effectué ces modifications, contactez-nous immédiatement.</p>
-      </div>
-
-      <div style="text-align:center; margin-top:25px;">
-        <a href="${config.FRONTEND_URL}/user/${updatedFields.userId || ''}"
-           style="background-color:#1877f2; color:white; padding:12px 30px; text-decoration:none; border-radius:6px;">
-           Voir mon profil
-        </a>
-      </div>
-
-      <p style="margin-top:30px; font-size:13px; color:#666; text-align:center;">
-        © ${new Date().getFullYear()} FindLocate. All rights reserved.<br>
-        Contact: dupontdjeague@gmail.com
+    <div style="background:#fff7ed; border-left:4px solid #f59e0b; padding:15px; border-radius:6px; margin:20px 0;">
+      <p style="margin:0; font-size:14px; color:#92400e;">
+        <strong>⚠️ Ce n'était pas vous ?</strong><br>
+        Si vous n'avez pas effectué ces modifications, contactez-nous immédiatement.
       </p>
     </div>
+
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <a href="${config.FRONTEND_URL}/user/${updatedFields.userId || ''}" 
+             style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
+            Voir mon profil
+          </a>
+        </td>
+      </tr>
+    </table>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #1877f2, #0c5bd8)',
+    '📝 Profil mis à jour'
+  )
 
   await sendEmail(userEmail, subject, html)
   console.log('📩 Profile update email sent to:', userEmail)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de suppression de compte
 const sendAccountDeletionEmail = async (userEmail, userName) => {
-  const subject = '😢 Votre compte FindLocate a été supprimé'
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; padding:20px; border:1px solid #ddd; border-radius:10px;">
-      <h2 style="color:#dc3545; text-align:center;">👋 Au revoir ${userName}</h2>
-      <p>Bonjour <strong>${userName}</strong>,</p>
-      <p>Nous confirmons que votre compte FindLocate a été supprimé avec succès.</p>
+  const subject = 'Votre compte FindLocate a été supprimé'
 
-      <div style="background:#f8d7da; border-left:4px solid #dc3545; padding:15px; margin:20px 0;">
-        <p style="margin:0;"><strong>🗑️ Compte supprimé</strong></p>
-        <p style="margin:5px 0 0 0;">Toutes vos données ont été définitivement supprimées de nos serveurs.</p>
-      </div>
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour <strong>${userName}</strong>,</p>
+    <p style="margin:0 0 20px 0; font-size:15px; color:#4b5563; line-height:1.6;">
+      Nous confirmons que votre compte FindLocate a été supprimé conformément à votre demande.
+    </p>
 
-      <div style="background:#f5f5f5; padding:15px; border-radius:8px; margin:20px 0;">
-        <h3 style="color:#333; margin-top:0;">📊 Qu'est-ce qui a été supprimé ?</h3>
-        <ul style="margin:10px 0; padding-left:20px;">
-          <li>Vos informations personnelles</li>
-          <li>Toutes vos annonces publiées</li>
-          <li>Vos messages et conversations</li>
-          <li>Vos favoris et préférences</li>
-        </ul>
-      </div>
+    <div style="background:#fef2f2; border-left:4px solid #ef4444; padding:20px; border-radius:6px; margin:25px 0;">
+      <h3 style="margin:0 0 15px 0; color:#dc2626; font-size:16px;">🗑️ Données supprimées</h3>
+      <ul style="margin:0; padding-left:20px; font-size:14px; color:#4b5563; line-height:1.8;">
+        <li style="padding:5px 0;">Vos informations personnelles</li>
+        <li style="padding:5px 0;">Toutes vos annonces publiées</li>
+        <li style="padding:5px 0;">Vos messages et conversations</li>
+        <li style="padding:5px 0;">Vos favoris et préférences</li>
+      </ul>
+    </div>
 
-      <div style="background:#d1ecf1; border-left:4px solid #0c5460; padding:15px; margin:20px 0;">
-        <p style="margin:0;"><strong>💙 Vous avez changé d'avis ?</strong></p>
-        <p style="margin:5px 0 0 0;">Vous pouvez toujours créer un nouveau compte sur FindLocate à tout moment.</p>
-      </div>
-
-      <div style="text-align:center; margin-top:25px;">
-        <a href="${config.FRONTEND_URL}/register"
-           style="background-color:#1877f2; color:white; padding:12px 30px; text-decoration:none; border-radius:6px;">
-           Créer un nouveau compte
-        </a>
-      </div>
-
-      <p style="margin-top:30px;">Nous sommes tristes de vous voir partir. Si vous avez des commentaires ou suggestions, n'hésitez pas à nous contacter.</p>
-      <p>Merci d'avoir utilisé FindLocate ! 💙</p>
-      <p>— L'équipe FindLocate</p>
-
-      <p style="margin-top:30px; font-size:13px; color:#666; text-align:center;">
-        © ${new Date().getFullYear()} FindLocate. All rights reserved.<br>
-        Contact: dupontdjeague@gmail.com
+    <div style="background:#dbeafe; border-left:4px solid #3b82f6; padding:15px; border-radius:6px; margin:20px 0;">
+      <p style="margin:0; font-size:14px; color:#1e40af;">
+        <strong>💙 Vous avez changé d'avis ?</strong><br>
+        Vous pouvez créer un nouveau compte à tout moment sur FindLocate.
       </p>
     </div>
+
+    <p style="margin:30px 0 0 0; font-size:14px; color:#6b7280; line-height:1.6;">
+      Merci d'avoir utilisé FindLocate. Si vous avez des suggestions pour améliorer notre service, n'hésitez pas à nous contacter à dupontdjeague@gmail.com
+    </p>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #ef4444, #dc2626)',
+    '👋 Au revoir'
+  )
 
   await sendEmail(userEmail, subject, html)
   console.log('📩 Account deletion email sent to:', userEmail)
 }
 
-// ✅ FONCTION INCHANGÉE - Envoi email de signalement d'annonce
 const sendPostReportEmail = async (reportData) => {
   const {
     postId,
@@ -454,147 +595,92 @@ const sendPostReportEmail = async (reportData) => {
     reportedAt,
   } = reportData
 
-  const subject = `🚨 Signalement d'annonce - ${postType}`
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          color: #333;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #f9f9f9;
-        }
-        .header {
-          background-color: #dc3545;
-          color: white;
-          padding: 20px;
-          text-align: center;
-          border-radius: 8px 8px 0 0;
-        }
-        .content {
-          background-color: white;
-          padding: 30px;
-          border-radius: 0 0 8px 8px;
-        }
-        .alert-box {
-          background-color: #fff3cd;
-          border-left: 4px solid #ffc107;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .info-box {
-          background-color: #f0f8ff;
-          border: 1px solid #ddd;
-          padding: 15px;
-          margin: 15px 0;
-          border-radius: 5px;
-        }
-        .info-row {
-          margin: 10px 0;
-        }
-        .label {
-          font-weight: bold;
-          color: #555;
-        }
-        .footer {
-          text-align: center;
-          color: #999;
-          font-size: 12px;
-          margin-top: 20px;
-        }
-        .button {
-          display: inline-block;
-          padding: 12px 24px;
-          background-color: #1877f2;
-          color: white;
-          text-decoration: none;
-          border-radius: 5px;
-          margin: 20px 0;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1 style="margin: 0;">🚨 Signalement d'annonce</h1>
-        </div>
-        <div class="content">
-          <p>Bonjour Administrateur,</p>
-          
-          <div class="alert-box">
-            <strong>⚠️ Une annonce a été signalée de manière anonyme</strong>
-          </div>
+  const subject = `Signalement d'annonce - ${postType} - ${postId}`
 
-          <h3>📋 Informations de l'annonce signalée :</h3>
-          <div class="info-box">
-            <div class="info-row">
-              <span class="label">ID de l'annonce :</span> ${postId}
-            </div>
-            <div class="info-row">
-              <span class="label">Titre :</span> ${postTitle}
-            </div>
-            <div class="info-row">
-              <span class="label">Type :</span> ${postType}
-            </div>
-            <div class="info-row">
-              <span class="label">Prix :</span> ${parseInt(
-                postPrice
-              ).toLocaleString()} FCFA
-            </div>
-            <div class="info-row">
-              <span class="label">Localisation :</span> ${postLocation}
-            </div>
-            <div class="info-row">
-              <span class="label">Propriétaire :</span> ${postOwner} (ID: ${postOwnerId})
-            </div>
-          </div>
+  const content = `
+    <p style="margin:0 0 20px 0; font-size:16px; color:#374151;">Bonjour Administrateur,</p>
+    
+    <div style="background:#fef2f2; border-left:4px solid #ef4444; padding:20px; border-radius:6px; margin:25px 0;">
+      <p style="margin:0; font-size:15px; color:#7f1d1d;">
+        <strong>🚨 Une annonce a été signalée de manière anonyme</strong>
+      </p>
+    </div>
 
-          <h3>🚩 Motif du signalement :</h3>
-          <div class="info-box">
-            <strong style="color: #dc3545;">${reason}</strong>
-          </div>
+    <div style="background:#f9fafb; padding:20px; border-radius:6px; margin:25px 0;">
+      <h3 style="margin:0 0 15px 0; color:#374151; font-size:16px;">📋 Informations de l'annonce</h3>
+      <table role="presentation" style="width:100%; font-size:14px; color:#4b5563;">
+        <tr>
+          <td style="padding:8px 0; width:40%;"><strong>ID :</strong></td>
+          <td style="padding:8px 0;">${postId}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;"><strong>Titre :</strong></td>
+          <td style="padding:8px 0;">${postTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;"><strong>Type :</strong></td>
+          <td style="padding:8px 0;">${postType}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;"><strong>Prix :</strong></td>
+          <td style="padding:8px 0;">${parseInt(
+            postPrice
+          ).toLocaleString()} FCFA</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;"><strong>Localisation :</strong></td>
+          <td style="padding:8px 0;">${postLocation}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;"><strong>Propriétaire :</strong></td>
+          <td style="padding:8px 0;">${postOwner} (ID: ${postOwnerId})</td>
+        </tr>
+      </table>
+    </div>
 
-          <h3>📝 Informations supplémentaires :</h3>
-          <div class="info-box">
-            <p style="margin: 0;">${additionalInfo}</p>
-          </div>
+    <div style="background:#fef3c7; border-left:4px solid #f59e0b; padding:20px; border-radius:6px; margin:25px 0;">
+      <h3 style="margin:0 0 10px 0; color:#92400e; font-size:16px;">🚩 Motif du signalement</h3>
+      <p style="margin:0; font-size:14px; color:#78350f; font-weight:600;">${reason}</p>
+    </div>
 
-          <div class="info-row">
-            <span class="label">Date du signalement :</span> ${reportedAt}
-          </div>
+    <div style="background:#f9fafb; padding:20px; border-radius:6px; margin:25px 0;">
+      <h3 style="margin:0 0 10px 0; color:#374151; font-size:16px;">📝 Informations supplémentaires</h3>
+      <p style="margin:0; font-size:14px; color:#4b5563; line-height:1.6;">${additionalInfo}</p>
+    </div>
 
-          <center>
-            <a href="${
-              config.FRONTEND_URL || 'http://localhost:5173'
-            }/posts/${postId}" class="button">
-              👁️ Voir l'annonce
-            </a>
-          </center>
+    <p style="margin:20px 0; font-size:14px; color:#6b7280;">
+      <strong>Date du signalement :</strong> ${reportedAt}
+    </p>
 
-          <p style="margin-top: 30px; color: #666; font-size: 14px;">
-            🔒 <strong>Note :</strong> Ce signalement est anonyme. L'utilisateur ayant signalé cette annonce reste confidentiel.
-          </p>
-        </div>
-        <div class="footer">
-          <p>Cet email a été envoyé automatiquement par le système de signalement.</p>
-          <p>© ${new Date().getFullYear()} FindLocate - Tous droits réservés</p>
-        </div>
-      </div>
-    </body>
-    </html>
+    <table role="presentation" style="width:100%; margin:30px 0;">
+      <tr>
+        <td align="center">
+          <a href="${
+            config.FRONTEND_URL || 'http://localhost:5173'
+          }/posts/${postId}" 
+             style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
+            👁️ Voir l'annonce
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background:#dbeafe; border-left:4px solid #3b82f6; padding:15px; border-radius:6px; margin:20px 0;">
+      <p style="margin:0; font-size:13px; color:#1e40af;">
+        <strong>🔒 Note :</strong> Ce signalement est anonyme. L'identité de l'utilisateur ayant signalé cette annonce reste confidentielle.
+      </p>
+    </div>
   `
+
+  const html = getEmailTemplate(
+    content,
+    'linear-gradient(135deg, #ef4444, #dc2626)',
+    "🚨 Signalement d'annonce"
+  )
 
   await sendEmail('findlocate237@gmail.com', subject, html)
 }
 
-// ✅ EXPORTS INCHANGÉS
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,

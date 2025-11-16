@@ -100,39 +100,36 @@ const postSchema = new mongoose.Schema({
       },
     },
   ],
-
   occupancyStatus: {
     isOccupied: {
       type: Boolean,
-      default: false, // Par défaut : disponible
+      default: false,
     },
     occupiedAt: {
-      type: Date, // Date à laquelle le bien a été marqué comme occupé
+      type: Date,
     },
     occupiedBy: {
-      // Informations du locataire (optionnel)
       name: String,
       contact: String,
     },
     occupiedNote: {
-      type: String, // Note du propriétaire (ex: "Loué jusqu'en décembre 2025")
+      type: String,
       maxlength: 200,
     },
     history: [
       {
         status: {
           type: String,
-          enum: ['available', 'occupied'], // Historique des changements
+          enum: ['available', 'occupied'],
         },
         changedAt: {
           type: Date,
           default: Date.now,
         },
         changedBy: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
+          type: String,
         },
-        note: String, // Raison du changement
+        note: String,
       },
     ],
   },
@@ -145,14 +142,30 @@ postSchema.virtual('isAvailable').get(function () {
 postSchema.methods.markAsOccupied = function (occupiedBy, note) {
   this.occupancyStatus.isOccupied = true
   this.occupancyStatus.occupiedAt = new Date()
-  this.occupancyStatus.occupiedBy = occupiedBy || {}
+  this.occupancyStatus.occupiedBy = occupiedBy || { name: '', contact: '' }
   this.occupancyStatus.occupiedNote = note || ''
-  // Ajouter à l'historique
+
   this.occupancyStatus.history.push({
     status: 'occupied',
     changedAt: new Date(),
     changedBy: this.userId,
     note: note || 'Bien marqué comme occupé',
+  })
+
+  return this.save()
+}
+
+postSchema.methods.markAsAvailable = function (note) {
+  this.occupancyStatus.isOccupied = false
+  this.occupancyStatus.occupiedAt = null
+  this.occupancyStatus.occupiedBy = { name: '', contact: '' }
+  this.occupancyStatus.occupiedNote = ''
+
+  this.occupancyStatus.history.push({
+    status: 'available',
+    changedAt: new Date(),
+    changedBy: this.userId,
+    note: note || 'Bien marqué comme disponible',
   })
 
   return this.save()
