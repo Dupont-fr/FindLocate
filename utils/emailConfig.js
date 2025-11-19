@@ -318,9 +318,7 @@ const sendPostCreatedEmail = async (userEmail, postData) => {
     <table role="presentation" style="width:100%; margin:30px 0;">
       <tr>
         <td align="center">
-          <a href="${
-            config.FRONTEND_URL || 'https://findlocate-1.onrender.com'
-          }" 
+          <a href="https://findlocate-1.onrender.com" 
              style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
             Voir mon annonce
           </a>
@@ -361,9 +359,7 @@ const sendWelcomeEmail = async (userEmail, userName) => {
     <table role="presentation" style="width:100%; margin:30px 0;">
       <tr>
         <td align="center">
-          <a href="${
-            config.FRONTEND_URL || 'https://findlocate-1.onrender.com'
-          }" 
+          <a href="https://findlocate-1.onrender.com" 
              style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
             Découvrir FindLocate
           </a>
@@ -659,9 +655,7 @@ const sendPostReportEmail = async (reportData) => {
     <table role="presentation" style="width:100%; margin:30px 0;">
       <tr>
         <td align="center">
-          <a href="${
-            config.FRONTEND_URL || 'https://findlocate-1.onrender.com'
-          }/posts/${postId}" 
+          <a href="https://findlocate-1.onrender.com/posts/${postId}" 
              style="display:inline-block; background-color:#1877f2; color:white; padding:14px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px;">
             👁️ Voir l'annonce
           </a>

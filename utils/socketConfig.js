@@ -2,7 +2,6 @@ const socketIO = require('socket.io')
 const logger = require('./logger')
 
 const onlineUsers = new Map()
-
 const typingUsers = new Map()
 
 let ioInstance = null
@@ -10,37 +9,37 @@ let ioInstance = null
 const initializeSocket = (server) => {
   const io = socketIO(server, {
     cors: {
-      origin: 'http://localhost:5173',
+      origin: [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'https://findlocate-1.onrender.com',
+      ],
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    transports: ['websocket', 'polling'],
   })
 
-  // Sauvegarder l'instance io pour l'utiliser dans getIO()
   ioInstance = io
 
   io.on('connection', (socket) => {
     logger.info(`  Nouvelle connexion Socket: ${socket.id}`)
 
-    //  Utilisateur se connecte
     socket.on('user:online', (userId) => {
       onlineUsers.set(userId, socket.id)
       logger.info(`✅ Utilisateur ${userId} en ligne`)
 
-      // Cela permet d'envoyer des notifications privées via io.to(`user_${userId}`)
       socket.join(`user_${userId}`)
       logger.info(
         ` Utilisateur ${userId} a rejoint sa room personnelle user_${userId}`
       )
 
-      // Notifier les autres
       socket.broadcast.emit('user:status', {
         userId,
         status: 'online',
       })
     })
 
-    //  Rejoindre une conversation spécifique
     socket.on('conversation:join', (conversationId) => {
       socket.join(conversationId)
       logger.info(
@@ -48,7 +47,6 @@ const initializeSocket = (server) => {
       )
     })
 
-    //  Quitter une conversation
     socket.on('conversation:leave', (conversationId) => {
       socket.leave(conversationId)
       logger.info(
@@ -56,7 +54,6 @@ const initializeSocket = (server) => {
       )
     })
 
-    //  Envoyer un message (émis depuis le controller)
     socket.on('message:send', (data) => {
       const { conversationId, message } = data
 
@@ -68,7 +65,6 @@ const initializeSocket = (server) => {
       logger.info(`💬 Message envoyé dans conversation ${conversationId}`)
     })
 
-    //  Utilisateur en train d'écrire
     socket.on('typing:start', ({ conversationId, userId, userName }) => {
       if (!typingUsers.has(conversationId)) {
         typingUsers.set(conversationId, [])
@@ -89,7 +85,6 @@ const initializeSocket = (server) => {
       logger.info(`⌨️ ${userName} est en train d'écrire dans ${conversationId}`)
     })
 
-    //  Utilisateur arrête d'écrire
     socket.on('typing:stop', ({ conversationId, userId }) => {
       if (typingUsers.has(conversationId)) {
         const typing = typingUsers.get(conversationId)
@@ -104,7 +99,6 @@ const initializeSocket = (server) => {
       })
     })
 
-    //  Marquer les messages comme lus
     socket.on('messages:read', ({ conversationId, userId }) => {
       io.to(conversationId).emit('messages:read:update', {
         conversationId,
@@ -116,7 +110,6 @@ const initializeSocket = (server) => {
       )
     })
 
-    //  Déconnexion
     socket.on('disconnect', () => {
       let disconnectedUserId = null
       for (const [userId, socketId] of onlineUsers.entries()) {
@@ -143,7 +136,6 @@ const initializeSocket = (server) => {
   return io
 }
 
-// émettre vers une room utilisateur
 const emitToUserRoom = (io, userId, event, data) => {
   io.to(`user_${userId}`).emit(event, data)
 }
@@ -163,7 +155,6 @@ const isUserOnline = (userId) => {
   return onlineUsers.has(userId)
 }
 
-// Fonction pour obtenir l'instance io depuis n'importe où
 const getIO = () => {
   if (!ioInstance) {
     throw new Error('Socket.io not initialized! Call initializeSocket first.')
