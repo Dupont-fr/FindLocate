@@ -14,7 +14,7 @@ const {
 
 // Générer un code de vérification à 6 chiffres
 const generateVerificationCode = () => {
-  return Math.floor(9000000 + Math.random() * 900000).toString()
+  return Math.floor(100000 + Math.random() * 900000).toString()
 }
 
 authRouter.post('/register', async (req, res, next) => {
