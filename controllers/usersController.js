@@ -2,12 +2,10 @@ const usersRouter = require('express').Router()
 const bcrypt = require('bcrypt')
 const User = require('../models/user')
 const { userExtractor } = require('../utils/middleware')
-// 🆕 AJOUT: Import des fonctions d'envoi d'emails
 const {
   sendProfileUpdateEmail,
   sendAccountDeletionEmail,
 } = require('../utils/emailConfig')
-// 🆕 AJOUT: Import du service socket pour les notifications en temps réel
 const { getIO } = require('../utils/socketConfig')
 
 // Récupérer tous les utilisateurs
@@ -24,7 +22,6 @@ usersRouter.get('/', async (req, res, next) => {
   }
 })
 
-// Récupérer un utilisateur par ID
 usersRouter.get('/:id', async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id).populate('posts')
@@ -39,7 +36,7 @@ usersRouter.get('/:id', async (req, res, next) => {
   }
 })
 
-// Mettre à jour un utilisateur (requiert authentification)
+// Mettre à jour un utilisateur
 usersRouter.put('/:id', userExtractor, async (req, res, next) => {
   try {
     const {
@@ -61,7 +58,6 @@ usersRouter.put('/:id', userExtractor, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' })
     }
 
-    // 🆕 AJOUT: Objet pour tracker les champs modifiés
     const updatedFields = {}
 
     // Si l'utilisateur veut changer son mot de passe
@@ -89,12 +85,12 @@ usersRouter.put('/:id', userExtractor, async (req, res, next) => {
       }
 
       // Validation complète du nouveau mot de passe
-      const hasUpperCase = /[A-Z]/.test(newPassword)
+      //const hasUpperCase = /[A-Z]/.test(newPassword)
       const hasLowerCase = /[a-z]/.test(newPassword)
       const hasNumber = /[0-9]/.test(newPassword)
-      const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
+      //const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
 
-      if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
+      if (!hasLowerCase || !hasNumber) {
         return res.status(400).json({
           error:
             'Password must contain uppercase, lowercase, number and special character',
@@ -106,35 +102,33 @@ usersRouter.put('/:id', userExtractor, async (req, res, next) => {
       user.passwordHash = await bcrypt.hash(newPassword, saltRounds)
       console.log('✅ Nouveau mot de passe hashé avec succès')
 
-      // 🆕 AJOUT: Tracker le changement de mot de passe
       updatedFields.password = true
     }
 
     // Mettre à jour les autres champs
     if (firstName !== undefined) {
       user.firstName = firstName
-      updatedFields.firstName = true // 🆕 Tracker
+      updatedFields.firstName = true
     }
     if (lastName !== undefined) {
       user.lastName = lastName
-      updatedFields.lastName = true // 🆕 Tracker
+      updatedFields.lastName = true
     }
     if (bio !== undefined) {
       user.bio = bio
-      updatedFields.bio = true // 🆕 Tracker
+      updatedFields.bio = true
     }
     if (profilePicture !== undefined) {
       user.profilePicture = profilePicture
-      updatedFields.profilePicture = true // 🆕 Tracker
+      updatedFields.profilePicture = true
     }
 
     const updatedUser = await user.save()
     console.log('✅ Utilisateur mis à jour avec succès')
 
-    // 🆕 AJOUT: Envoyer email de confirmation si des champs ont été modifiés
+    //  Envoyer email de confirmation si des champs ont été modifiés
     if (Object.keys(updatedFields).length > 0) {
       try {
-        // 🆕 Ajouter l'ID utilisateur pour le lien dans l'email
         updatedFields.userId = user._id
 
         await sendProfileUpdateEmail(
@@ -148,7 +142,6 @@ usersRouter.put('/:id', userExtractor, async (req, res, next) => {
           '❌ Failed to send profile update email:',
           emailError.message
         )
-        // 🆕 NOTE: On continue même si l'email échoue (non bloquant)
       }
     }
 
@@ -159,29 +152,23 @@ usersRouter.put('/:id', userExtractor, async (req, res, next) => {
   }
 })
 
-// Supprimer un utilisateur (requiert authentification)
 usersRouter.delete('/:id', userExtractor, async (req, res, next) => {
   try {
-    // Vérifier que l'utilisateur supprime son propre compte
     if (req.user.id !== req.params.id) {
       return res.status(403).json({ error: 'Permission denied' })
     }
 
-    // 🆕 AJOUT: Récupérer les infos de l'utilisateur avant suppression
     const user = await User.findById(req.params.id)
     if (!user) {
       return res.status(404).json({ error: 'User not found' })
     }
 
-    // 🆕 AJOUT: Sauvegarder email et nom avant suppression
     const userEmail = user.email
     const userName = `${user.firstName} ${user.lastName}`
 
-    // Supprimer l'utilisateur
     await User.findByIdAndDelete(req.params.id)
     console.log('✅ Utilisateur supprimé avec succès')
 
-    // 🆕 AJOUT: Envoyer email de confirmation de suppression
     try {
       await sendAccountDeletionEmail(userEmail, userName)
       console.log('✅ Account deletion email sent to', userEmail)
@@ -190,7 +177,6 @@ usersRouter.delete('/:id', userExtractor, async (req, res, next) => {
         '❌ Failed to send account deletion email:',
         emailError.message
       )
-      // 🆕 NOTE: On continue même si l'email échoue (non bloquant)
     }
 
     res.status(204).end()
@@ -200,116 +186,111 @@ usersRouter.delete('/:id', userExtractor, async (req, res, next) => {
 })
 
 // 🆕 NOUVELLE ROUTE: Envoyer une demande d'ami (avec notification en temps réel)
-usersRouter.post(
-  '/:id/friend-request',
-  userExtractor,
-  async (req, res, next) => {
-    try {
-      const targetUserId = req.params.id
-      const requesterId = req.user.id
+// usersRouter.post(
+//   '/:id/friend-request',
+//   userExtractor,
+//   async (req, res, next) => {
+//     try {
+//       const targetUserId = req.params.id
+//       const requesterId = req.user.id
 
-      // Vérifier qu'on n'envoie pas une demande à soi-même
-      if (targetUserId === requesterId) {
-        return res
-          .status(400)
-          .json({ error: 'Cannot send friend request to yourself' })
-      }
+//       if (targetUserId === requesterId) {
+//         return res
+//           .status(400)
+//           .json({ error: 'Cannot send friend request to yourself' })
+//       }
 
-      const targetUser = await User.findById(targetUserId)
-      const requester = await User.findById(requesterId)
+//       const targetUser = await User.findById(targetUserId)
+//       const requester = await User.findById(requesterId)
 
-      if (!targetUser || !requester) {
-        return res.status(404).json({ error: 'User not found' })
-      }
+//       if (!targetUser || !requester) {
+//         return res.status(404).json({ error: 'User not found' })
+//       }
 
-      // 🆕 AJOUT: Envoyer notification en temps réel
-      try {
-        const io = getIO()
+//       try {
+//         const io = getIO()
 
-        const notification = {
-          type: 'friend-request',
-          senderId: requesterId,
-          senderName: `${requester.firstName} ${requester.lastName}`,
-          senderAvatar: requester.profilePicture || '/default-avatar.png',
-          message: `${requester.firstName} ${requester.lastName} vous a envoyé une demande d'ami`,
-          timestamp: new Date().toISOString(),
-          recipientId: targetUserId,
-        }
+//         const notification = {
+//           type: 'friend-request',
+//           senderId: requesterId,
+//           senderName: `${requester.firstName} ${requester.lastName}`,
+//           senderAvatar: requester.profilePicture || '/default-avatar.png',
+//           message: `${requester.firstName} ${requester.lastName} vous a envoyé une demande d'ami`,
+//           timestamp: new Date().toISOString(),
+//           recipientId: targetUserId,
+//         }
 
-        // Émettre la notification à l'utilisateur cible
-        io.to(`user_${targetUserId}`).emit(
-          'notification:friend-request',
-          notification
-        )
-        console.log(
-          `🔔 Notification de demande d'ami envoyée à user_${targetUserId}`
-        )
-      } catch (socketError) {
-        console.error(
-          "❌ Erreur lors de l'envoi de la notification socket:",
-          socketError.message
-        )
-        // 🆕 NOTE: On continue même si la notification socket échoue
-      }
+//         io.to(`user_${targetUserId}`).emit(
+//           'notification:friend-request',
+//           notification
+//         )
+//         console.log(
+//           `🔔 Notification de demande d'ami envoyée à user_${targetUserId}`
+//         )
+//       } catch (socketError) {
+//         console.error(
+//           "❌ Erreur lors de l'envoi de la notification socket:",
+//           socketError.message
+//         )
+//       }
 
-      res.json({ message: 'Friend request sent successfully' })
-    } catch (error) {
-      next(error)
-    }
-  }
-)
+//       res.json({ message: 'Friend request sent successfully' })
+//     } catch (error) {
+//       next(error)
+//     }
+//   }
+// )
 
-// 🆕 NOUVELLE ROUTE: Accepter une demande d'ami (avec notification en temps réel)
-usersRouter.post(
-  '/:id/accept-friend',
-  userExtractor,
-  async (req, res, next) => {
-    try {
-      const requesterId = req.params.id // Celui qui a envoyé la demande
-      const accepterId = req.user.id // Celui qui accepte
+// // 🆕 NOUVELLE ROUTE: Accepter une demande d'ami (avec notification en temps réel)
+// usersRouter.post(
+//   '/:id/accept-friend',
+//   userExtractor,
+//   async (req, res, next) => {
+//     try {
+//       const requesterId = req.params.id // Celui qui a envoyé la demande
+//       const accepterId = req.user.id // Celui qui accepte
 
-      const requester = await User.findById(requesterId)
-      const accepter = await User.findById(accepterId)
+//       const requester = await User.findById(requesterId)
+//       const accepter = await User.findById(accepterId)
 
-      if (!requester || !accepter) {
-        return res.status(404).json({ error: 'User not found' })
-      }
+//       if (!requester || !accepter) {
+//         return res.status(404).json({ error: 'User not found' })
+//       }
 
-      // 🆕 AJOUT: Envoyer notification en temps réel au demandeur
-      try {
-        const io = getIO()
+//       try {
+//         const io = getIO()
 
-        const notification = {
-          type: 'friend-accepted',
-          senderId: accepterId,
-          senderName: `${accepter.firstName} ${accepter.lastName}`,
-          senderAvatar: accepter.profilePicture || '/default-avatar.png',
-          message: `${accepter.firstName} ${accepter.lastName} a accepté votre demande d'ami`,
-          timestamp: new Date().toISOString(),
-          recipientId: requesterId,
-        }
+//         const notification = {
+//           type: 'friend-accepted',
+//           senderId: accepterId,
+//           senderName: `${accepter.firstName} ${accepter.lastName}`,
+//           senderAvatar: accepter.profilePicture || '/default-avatar.png',
+//           message: `${accepter.firstName} ${accepter.lastName} a accepté votre demande d'ami`,
+//           timestamp: new Date().toISOString(),
+//           recipientId: requesterId,
+//         }
 
-        // Émettre la notification au demandeur original
-        io.to(`user_${requesterId}`).emit(
-          'notification:friend-accepted',
-          notification
-        )
-        console.log(
-          `🔔 Notification d'acceptation d'ami envoyée à user_${requesterId}`
-        )
-      } catch (socketError) {
-        console.error(
-          "❌ Erreur lors de l'envoi de la notification socket:",
-          socketError.message
-        )
-        // 🆕 NOTE: On continue même si la notification socket échoue
-      }
+//         // Émettre la notification au demandeur original
+//         io.to(`user_${requesterId}`).emit(
+//           'notification:friend-accepted',
+//           notification
+//         )
+//         console.log(
+//           `🔔 Notification d'acceptation d'ami envoyée à user_${requesterId}`
+//         )
+//       } catch (socketError) {
+//         console.error(
+//           "❌ Erreur lors de l'envoi de la notification socket:",
+//           socketError.message
+//         )
+//         // 🆕 NOTE: On continue même si la notification socket échoue
+//       }
 
-      res.json({ message: 'Friend request accepted successfully' })
-    } catch (error) {
-      next(error)
-    }
-  }
-)
+//       res.json({ message: 'Friend request accepted successfully' })
+//     } catch (error) {
+//       next(error)
+//     }
+//   }
+// )
 
 module.exports = usersRouter

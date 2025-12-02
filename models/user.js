@@ -17,7 +17,7 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: [true, 'Email is required'],
-      unique: true, // ✅ Unicité gérée par MongoDB directement
+      unique: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email'],
@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
     phonenumber: {
       type: String,
       required: [true, 'Phone number is required'],
-      unique: true, // ✅ Idem ici
+      unique: true,
       trim: true,
       minlength: [8, 'Phone number must be at least 8 characters'],
     },

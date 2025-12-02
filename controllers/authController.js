@@ -29,15 +29,14 @@ authRouter.post('/register', async (req, res, next) => {
       profilePicture,
     } = req.body
 
-    // Validation du mot de passe
     if (!password || password.length < 6)
       return res
         .status(400)
         .json({ error: 'Password must be at least 6 characters long' })
-    if (!/[A-Z]/.test(password))
-      return res
-        .status(400)
-        .json({ error: 'Password must contain at least one uppercase letter' })
+    // if (!/[A-Z]/.test(password))
+    //   return res
+    //     .status(400)
+    //     .json({ error: 'Password must contain at least one uppercase letter' })
     if (!/[a-z]/.test(password))
       return res
         .status(400)
@@ -46,10 +45,10 @@ authRouter.post('/register', async (req, res, next) => {
       return res
         .status(400)
         .json({ error: 'Password must contain at least one number' })
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password))
-      return res
-        .status(400)
-        .json({ error: 'Password must contain at least one special character' })
+    // if (!/[!@#$%^&*(),.?":{}|<>]/.test(password))
+    //   return res
+    //     .status(400)
+    //     .json({ error: 'Password must contain at least one special character' })
 
     // Vérifier les doublons (email ou téléphone)
     const existingEmail = await User.findOne({ email })
@@ -66,7 +65,6 @@ authRouter.post('/register', async (req, res, next) => {
     const saltRounds = 10
     const passwordHash = await bcrypt.hash(password, saltRounds)
 
-    // Générer un code de vérification (expire dans 5 minutes)
     const verificationCode = generateVerificationCode()
     const verificationCodeExpires = new Date(Date.now() + 5 * 60 * 90000)
 

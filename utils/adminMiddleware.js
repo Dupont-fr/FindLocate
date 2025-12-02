@@ -4,13 +4,10 @@ const config = require('./config')
 
 require('dotenv').config()
 
-// 🆕 AJOUT : Charger les variables d'environnement
 const JWT_SECRET = process.env.JWT_SECRET
 
-// 🆕 Middleware pour vérifier si l'utilisateur est un admin
 const adminExtractor = async (req, res, next) => {
   try {
-    // 🆕 Récupérer le token depuis le header Authorization
     const authorization = req.get('authorization')
 
     if (!authorization || !authorization.toLowerCase().startsWith('bearer ')) {
@@ -19,27 +16,25 @@ const adminExtractor = async (req, res, next) => {
 
     const token = authorization.substring(7)
 
-    // 🆕 CORRECTION : Vérifier que JWT_SECRET existe
     if (!process.env.JWT_SECRET) {
       console.error('❌ ERREUR CRITIQUE : JWT_SECRET non défini dans .env')
       return res.status(500).json({ error: 'Server configuration error' })
     }
 
-    // 🆕 Vérifier et décoder le token
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET)
 
     if (!decodedToken.id) {
       return res.status(401).json({ error: 'Token invalid' })
     }
 
-    // 🆕 Récupérer l'utilisateur depuis la DB
+    //  Récupérer l'utilisateur depuis la DB
     const user = await User.findById(decodedToken.id)
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' })
     }
 
-    // 🆕 CRITIQUE: Vérifier si l'utilisateur est un admin
+    //  Vérifier si l'utilisateur est un admin
     if (user.role !== 'admin') {
       console.log(
         `⚠️ Tentative d'accès admin refusée pour l'utilisateur: ${user.email}`
@@ -51,7 +46,6 @@ const adminExtractor = async (req, res, next) => {
 
     console.log(`✅ Admin authentifié: ${user.email}`)
 
-    // 🆕 Ajouter les infos utilisateur à la requête
     req.user = {
       id: user._id.toString(),
       email: user.email,

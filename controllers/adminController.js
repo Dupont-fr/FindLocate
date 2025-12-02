@@ -3,18 +3,15 @@ const User = require('../models/user')
 const Post = require('../models/post')
 const { adminExtractor } = require('../utils/adminMiddleware')
 
-//  GET /api/admin/stats - Statistiques globales
 adminRouter.get('/stats', adminExtractor, async (req, res, next) => {
   try {
     const users = await User.find({})
     const posts = await Post.find({})
 
-    //  Statistiques de base
     const totalUsers = users.length
     const totalPosts = posts.length
     const activeUsers = users.filter((u) => u.isActive).length
 
-    //  Statistiques par période (30 derniers jours)
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -41,7 +38,6 @@ adminRouter.get('/stats', adminExtractor, async (req, res, next) => {
       ? await User.findById(mostActiveUserId)
       : null
 
-    //  Statistiques par catégorie de logement
     const postsByType = {
       appartement: posts.filter((p) => p.type === 'appartement').length,
       studio: posts.filter((p) => p.type === 'studio').length,
@@ -49,13 +45,11 @@ adminRouter.get('/stats', adminExtractor, async (req, res, next) => {
       chambre: posts.filter((p) => p.type === 'chambre').length,
     }
 
-    //  Statistiques par région
     const postsByRegion = {}
     posts.forEach((post) => {
       postsByRegion[post.region] = (postsByRegion[post.region] || 0) + 1
     })
 
-    //  Prix moyen par type
     const avgPriceByType = {}
     Object.keys(postsByType).forEach((type) => {
       const postsOfType = posts.filter((p) => p.type === type)
@@ -70,7 +64,6 @@ adminRouter.get('/stats', adminExtractor, async (req, res, next) => {
       }
     })
 
-    //  Retourner toutes les statistiques
     res.json({
       general: {
         totalUsers,
@@ -92,15 +85,14 @@ adminRouter.get('/stats', adminExtractor, async (req, res, next) => {
       avgPriceByType,
     })
   } catch (error) {
-    console.error('❌ Error fetching admin stats:', error)
+    console.error('  Error fetching admin stats:', error)
     next(error)
   }
 })
 
-//  GET /api/admin/stats/timeline - Statistiques chronologiques
 adminRouter.get('/stats/timeline', adminExtractor, async (req, res, next) => {
   try {
-    const { period = '30' } = req.query // Nombre de jours
+    const { period = '30' } = req.query
     const days = parseInt(period)
 
     const users = await User.find({})
@@ -135,26 +127,25 @@ adminRouter.get('/stats/timeline', adminExtractor, async (req, res, next) => {
 
     res.json(timeline)
   } catch (error) {
-    console.error('❌ Error fetching timeline stats:', error)
+    console.error('  Error fetching timeline stats:', error)
     next(error)
   }
 })
 
-//  GET /api/admin/users - Récupérer tous les utilisateurs
+//Récupérer tous les utilisateurs
 adminRouter.get('/users', adminExtractor, async (req, res, next) => {
   try {
     const users = await User.find({})
-      .select('-passwordHash') //  Ne pas retourner le mot de passe
+      .select('-passwordHash')
       .sort({ createdAt: -1 })
 
     res.json(users)
   } catch (error) {
-    console.error('❌ Error fetching users:', error)
+    console.error('  Error fetching users:', error)
     next(error)
   }
 })
 
-//  GET /api/admin/users/:id - Récupérer un utilisateur spécifique
 adminRouter.get('/users/:id', adminExtractor, async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id).select('-passwordHash')
@@ -163,7 +154,6 @@ adminRouter.get('/users/:id', adminExtractor, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' })
     }
 
-    //  Récupérer les posts de l'utilisateur
     const userPosts = await Post.find({ userId: req.params.id })
 
     res.json({
@@ -180,18 +170,14 @@ adminRouter.get('/users/:id', adminExtractor, async (req, res, next) => {
   }
 })
 
-// 🆕 DELETE /api/admin/users/:id - Supprimer un utilisateur
-// ✅ CORRECTION: Ajout de validation de l'ID et meilleure gestion d'erreurs
 adminRouter.delete('/users/:id', adminExtractor, async (req, res, next) => {
   try {
     const userId = req.params.id
 
-    //  AJOUT: Valider que l'ID est bien défini
     if (!userId || userId === 'undefined') {
       return res.status(400).json({ error: 'Invalid user ID' })
     }
 
-    //  Empêcher l'admin de se supprimer lui-même
     if (userId === req.user.id) {
       return res.status(400).json({ error: 'Cannot delete your own account' })
     }
@@ -201,7 +187,6 @@ adminRouter.delete('/users/:id', adminExtractor, async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' })
     }
 
-    //  CORRECTION: Supprimer tous les posts de l'utilisateur avec validation
     try {
       const deletedPosts = await Post.deleteMany({ userId })
       console.log(
@@ -218,7 +203,7 @@ adminRouter.delete('/users/:id', adminExtractor, async (req, res, next) => {
     console.log(`✅ Admin deleted user ${userId}`)
     res.status(204).end()
   } catch (error) {
-    console.error('❌ Error deleting user:', error)
+    console.error('  Error deleting user:', error)
     //  AJOUT: Retourner une erreur plus descriptive
     if (error.name === 'CastError') {
       return res.status(400).json({ error: 'Invalid user ID format' })
@@ -227,7 +212,6 @@ adminRouter.delete('/users/:id', adminExtractor, async (req, res, next) => {
   }
 })
 
-//  PATCH /api/admin/users/:id/toggle-status - Activer/Désactiver un compte
 adminRouter.patch(
   '/users/:id/toggle-status',
   adminExtractor,
@@ -248,29 +232,26 @@ adminRouter.patch(
       )
       res.json({ isActive: user.isActive })
     } catch (error) {
-      console.error('❌ Error toggling user status:', error)
+      console.error('  Error toggling user status:', error)
       next(error)
     }
   }
 )
 
-//  GET /api/admin/posts - Récupérer tous les posts
 adminRouter.get('/posts', adminExtractor, async (req, res, next) => {
   try {
     const posts = await Post.find({}).sort({ createdAt: -1 })
     res.json(posts)
   } catch (error) {
-    console.error('❌ Error fetching posts:', error)
+    console.error('  Error fetching posts:', error)
     next(error)
   }
 })
 
-//  CORRECTION: Ajout de validation de l'ID
 adminRouter.delete('/posts/:id', adminExtractor, async (req, res, next) => {
   try {
     const postId = req.params.id
 
-    //  AJOUT: Valider que l'ID est bien défini
     if (!postId || postId === 'undefined') {
       return res.status(400).json({ error: 'Invalid post ID' })
     }
@@ -286,8 +267,7 @@ adminRouter.delete('/posts/:id', adminExtractor, async (req, res, next) => {
     console.log(`✅ Admin deleted post ${postId}`)
     res.status(204).end()
   } catch (error) {
-    console.error('❌ Error deleting post:', error)
-    //  AJOUT: Meilleure gestion d'erreurs
+    console.error('  Error deleting post:', error)
     if (error.name === 'CastError') {
       return res.status(400).json({ error: 'Invalid post ID format' })
     }
@@ -295,7 +275,6 @@ adminRouter.delete('/posts/:id', adminExtractor, async (req, res, next) => {
   }
 })
 
-//  DELETE /api/admin/posts/:postId/comments/:commentId - Supprimer un commentaire
 adminRouter.delete(
   '/posts/:postId/comments/:commentId',
   adminExtractor,
@@ -317,13 +296,13 @@ adminRouter.delete(
       )
       res.json(post)
     } catch (error) {
-      console.error('❌ Error deleting comment:', error)
+      console.error('  Error deleting comment:', error)
       next(error)
     }
   }
 )
 
-//  GET /api/admin/stats/top-posts - Posts les plus populaires
+//Posts les plus populaires
 adminRouter.get('/stats/top-posts', adminExtractor, async (req, res, next) => {
   try {
     const posts = await Post.find({})
@@ -335,7 +314,6 @@ adminRouter.get('/stats/top-posts', adminExtractor, async (req, res, next) => {
       {}
     )
 
-    //  Post avec le plus de commentaires
     const postWithMostComments = posts.reduce(
       (max, post) =>
         post.comments.length > (max.comments?.length || 0) ? post : max,
@@ -367,12 +345,12 @@ adminRouter.get('/stats/top-posts', adminExtractor, async (req, res, next) => {
         : null,
     })
   } catch (error) {
-    console.error('❌ Error fetching top posts:', error)
+    console.error('  Error fetching top posts:', error)
     next(error)
   }
 })
 
-//  GET /api/admin/stats/top-users - Utilisateurs les plus actifs
+//Utilisateurs les plus actifs
 adminRouter.get('/stats/top-users', adminExtractor, async (req, res, next) => {
   try {
     const users = await User.find({})
@@ -421,12 +399,12 @@ adminRouter.get('/stats/top-users', adminExtractor, async (req, res, next) => {
 
     res.json(topUsers)
   } catch (error) {
-    console.error('❌ Error fetching top users:', error)
+    console.error('  Error fetching top users:', error)
     next(error)
   }
 })
 
-//  GET /api/admin/stats/cities - Statistiques par ville
+// Statistiques par ville
 adminRouter.get('/stats/cities', adminExtractor, async (req, res, next) => {
   try {
     const posts = await Post.find({})
@@ -434,7 +412,7 @@ adminRouter.get('/stats/cities', adminExtractor, async (req, res, next) => {
     //  Compter les posts par ville
     const citiesData = {}
     posts.forEach((post) => {
-      const city = post.ville
+      const city = post.ville.toLowerCase()
       if (!citiesData[city]) {
         citiesData[city] = {
           count: 0,
@@ -458,12 +436,12 @@ adminRouter.get('/stats/cities', adminExtractor, async (req, res, next) => {
 
     res.json(topCities)
   } catch (error) {
-    console.error('❌ Error fetching cities stats:', error)
+    console.error('  Error fetching cities stats:', error)
     next(error)
   }
 })
 
-//  GET /api/admin/reports - Récupérer les posts signalés
+//  Récupérer les posts signalés
 adminRouter.get('/reports', adminExtractor, async (req, res, next) => {
   try {
     //  Récupérer tous les posts avec signalements
@@ -476,7 +454,7 @@ adminRouter.get('/reports', adminExtractor, async (req, res, next) => {
         author: p.userName,
         reportsCount: p.reports.length,
         lastReported: p.reports[p.reports.length - 1].timestamp,
-        reports: p.reports, //  Inclure tous les signalements
+        reports: p.reports,
       }))
       .sort((a, b) => b.reportsCount - a.reportsCount)
 
@@ -485,15 +463,15 @@ adminRouter.get('/reports', adminExtractor, async (req, res, next) => {
       posts: reportedPosts,
     })
   } catch (error) {
-    console.error('❌ Error fetching reports:', error)
+    console.error('  Error fetching reports:', error)
     next(error)
   }
 })
 
-//  GET /api/admin/export - Générer un rapport Excel/PDF
+//  Générer un rapport Excel/PDF
 adminRouter.get('/export/:format', adminExtractor, async (req, res, next) => {
   try {
-    const { format } = req.params // 'excel' ou 'pdf'
+    const { format } = req.params
 
     //  Récupérer toutes les données
     const users = await User.find({})
@@ -547,7 +525,7 @@ adminRouter.get('/export/:format', adminExtractor, async (req, res, next) => {
 
     res.status(400).json({ error: 'Format non supporté. Utilisez json ou csv' })
   } catch (error) {
-    console.error('❌ Error generating report:', error)
+    console.error('  Error generating report:', error)
     next(error)
   }
 })

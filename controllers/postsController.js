@@ -8,14 +8,54 @@ const {
 } = require('../utils/emailConfig')
 const { getIO } = require('../utils/socketConfig')
 
+// ⚠️ IMPORTANT: Cette route DOIT être AVANT la route GET '/:id'
+// Route pour récupérer les posts d'un utilisateur spécifique (TOUS ses posts)
+postsRouter.get('/user/:userId', async (req, res, next) => {
+  try {
+    const { available, occupied } = req.query
+    const { userId } = req.params
+
+    console.log(`🔍 Fetching ALL posts for user: ${userId}`)
+
+    let filter = { userId }
+
+    if (available === 'true') {
+      filter['occupancyStatus.isOccupied'] = false
+    } else if (occupied === 'true') {
+      filter['occupancyStatus.isOccupied'] = true
+    }
+
+    const posts = await Post.find(filter).sort({ createdAt: -1 })
+    console.log(`📋 Found ${posts.length} posts for user ${userId}`)
+    console.log(
+      `   - Visible: ${posts.filter((p) => p.isVisible !== false).length}`
+    )
+    console.log(
+      `   - Hidden: ${posts.filter((p) => p.isVisible === false).length}`
+    )
+    console.log(
+      `   - Occupied: ${
+        posts.filter((p) => p.occupancyStatus?.isOccupied).length
+      }`
+    )
+
+    res.json(posts)
+  } catch (error) {
+    console.error('Error fetching user posts:', error)
+    next(error)
+  }
+})
+
+// Route pour récupérer TOUS les posts publics
 postsRouter.get('/', async (req, res, next) => {
   try {
-    const { userId, available, occupied } = req.query
+    const { available, occupied } = req.query
 
-    let filter = {}
+    console.log('🌍 Fetching public posts')
 
-    if (userId) {
-      filter.userId = userId
+    let filter = {
+      // Afficher uniquement les posts visibles publiquement
+      $or: [{ isVisible: true }, { isVisible: { $exists: false } }],
     }
 
     if (available === 'true') {
@@ -24,7 +64,8 @@ postsRouter.get('/', async (req, res, next) => {
       filter['occupancyStatus.isOccupied'] = true
     }
 
-    const posts = await Post.find(filter).sort({ createdAt: 1 })
+    const posts = await Post.find(filter).sort({ createdAt: -1 })
+    console.log(`📋 Found ${posts.length} public posts`)
     res.json(posts)
   } catch (error) {
     console.error('Error fetching posts:', error)
@@ -171,6 +212,7 @@ postsRouter.post('/', userExtractor, async (req, res, next) => {
       videos: videos || [],
       likes: [],
       comments: [],
+      isVisible: true, // IMPORTANT: Nouveau post = visible par défaut
     })
 
     const savedPost = await newPost.save()
@@ -510,10 +552,14 @@ postsRouter.put('/:id/mark-occupied', userExtractor, async (req, res, next) => {
 
     await post.markAsOccupied(occupiedBy, note)
 
-    console.log('Post marked as occupied:', post.id)
+    // Masquer le post du public
+    post.isVisible = false
+    await post.save()
+
+    console.log('Post marked as occupied and hidden from public:', post.id)
 
     res.json({
-      message: 'Property marked as occupied successfully',
+      message: 'Property marked as occupied and hidden from public view',
       post: post.toJSON(),
     })
   } catch (error) {
@@ -549,10 +595,14 @@ postsRouter.put(
 
       await post.markAsAvailable(note)
 
-      console.log('Post marked as available:', post.id)
+      // Rendre le post visible au public
+      post.isVisible = true
+      await post.save()
+
+      console.log('Post marked as available and made public:', post.id)
 
       res.json({
-        message: 'Property marked as available successfully',
+        message: 'Property marked as available and now visible to everyone',
         post: post.toJSON(),
       })
     } catch (error) {

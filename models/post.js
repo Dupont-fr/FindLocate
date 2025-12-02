@@ -100,6 +100,10 @@ const postSchema = new mongoose.Schema({
       },
     },
   ],
+  isVisible: {
+    type: Boolean,
+    default: true,
+  },
   occupancyStatus: {
     isOccupied: {
       type: Boolean,

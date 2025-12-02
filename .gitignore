@@ -18,3 +18,6 @@ node_modules/
 createAdmin.js
 debugToken.js
 sendemail.js
+test-sendgrid.js
+migratePostsVisibility.js
+migrateUserRoles.js
