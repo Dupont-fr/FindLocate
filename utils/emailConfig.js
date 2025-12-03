@@ -1,18 +1,20 @@
-const SibApiV3Sdk = require('@sendinblue/client')
+const brevo = require('@getbrevo/brevo')
 const config = require('./config')
 
 let apiInstance = null
 
 if (config.BREVO_API_KEY) {
-  apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
-  const apiKey = apiInstance.authentications['apiKey']
-  apiKey.apiKey = config.BREVO_API_KEY
-  console.log('✅ Brevo API key configured')
+  apiInstance = new brevo.TransactionalEmailsApi()
+  apiInstance.setApiKey(
+    brevo.TransactionalEmailsApiApiKeys.apiKey,
+    config.BREVO_API_KEY
+  )
+  console.log('✅ Brevo API key configured (nouveau SDK)')
 } else {
   console.warn('⚠️  WARNING: BREVO_API_KEY not configured')
 }
 
-// 🔥 ENVOI EMAIL AVEC BREVO (Meilleure délivrabilité)
+// 🔥 FONCTION D'ENVOI AVEC NOUVEAU SDK
 const sendEmail = async (to, subject, html, retries = 3) => {
   if (!config.BREVO_API_KEY) {
     throw new Error('Brevo API key not configured')
@@ -22,7 +24,6 @@ const sendEmail = async (to, subject, html, retries = 3) => {
     throw new Error('Invalid email parameters')
   }
 
-  // Email expéditeur (celui vérifié dans Brevo)
   const fromEmail = config.EMAIL_USER || 'findlocate237@gmail.com'
 
   // Texte brut automatique
@@ -33,7 +34,7 @@ const sendEmail = async (to, subject, html, retries = 3) => {
     .replace(/\s+/g, ' ')
     .trim()
 
-  const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail()
+  const sendSmtpEmail = new brevo.SendSmtpEmail()
 
   sendSmtpEmail.sender = {
     name: 'FindLocate',
